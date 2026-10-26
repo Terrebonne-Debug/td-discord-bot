@@ -17,18 +17,15 @@ const busyChannels = new Set();
 
 const commands = [
   new SlashCommandBuilder()
-    .setName('ask')
-    .setDescription('Ask DeepSeek a question')
+    .setName('q')
+    .setDescription('Pose une question')
     .addStringOption((option) =>
       option
         .setName('prompt')
-        .setDescription('Your question')
+        .setDescription('Ta question')
         .setRequired(true)
         .setMaxLength(Math.min(config.maxPromptChars, 6000)),
-    ),
-  new SlashCommandBuilder()
-    .setName('reset')
-    .setDescription("Clear this channel's conversation history"),
+    )
 ].map((command) => command.toJSON());
 
 const client = new Client({
