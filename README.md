@@ -1,121 +1,132 @@
 # td-discord-bot
 
-A small Discord bot that talks to DeepSeek through its Anthropic-compatible API.
+Un petit bot Discord qui dialogue avec DeepSeek via son API compatible
+Anthropic.
 
-The defaults mirror the Claude Code session that set this project up:
+Les valeurs par défaut reprennent la configuration de la session Claude Code
+qui a créé ce projet :
 
-- endpoint: `https://api.deepseek.com/anthropic`
-- model: `deepseek-v4-flash`
-- thinking: enabled
-- effort: `max`
-- temperature: unset, so DeepSeek's API default applies
+- endpoint : `https://api.deepseek.com/anthropic`
+- modèle : `deepseek-v4-flash`
+- réflexion (thinking) : activée
+- effort : `max`
+- température : non définie, donc la valeur par défaut de l'API DeepSeek
+  s'applique
 
-All of these can be changed in `.env` without touching the code.
+Tout se modifie dans `.env`, sans toucher au code.
 
-## Features
+## Fonctionnalités
 
-- Mention the bot in a server channel, or send it a DM.
-- Use `/ask prompt:<question>` for a slash command.
-- Use `/reset` to clear the current channel's conversation history.
-- Remembers the last `MAX_HISTORY_TURNS` exchanges per channel (in memory only).
-- Splits long answers into multiple Discord messages.
-- Suppresses all mentions in model output, so it cannot ping `@everyone`.
-- Allows only one in-flight request per channel, preventing interleaved answers.
+- Mentionnez le bot dans un salon de serveur, ou envoyez-lui un MP.
+- Utilisez la commande slash `/q prompt:<question>`.
+- Mémorise les `MAX_HISTORY_TURNS` derniers échanges par salon (en mémoire
+  uniquement).
+- Découpe les réponses longues en plusieurs messages Discord.
+- Supprime toutes les mentions dans les réponses du modèle, pour qu'il ne
+  puisse pas ping `@everyone`.
+- N'autorise qu'une requête en cours par salon, ce qui évite les réponses
+  entrelacées.
 
-## Requirements
+## Prérequis
 
-- Node.js 20 or newer
-- A Discord bot token
-- A DeepSeek API key
+- Node.js 20 ou plus récent
+- Un jeton de bot Discord
+- Une clé API DeepSeek
 
-## Setup
+## Installation
 
-1. Install dependencies:
+1. Installez les dépendances :
 
    ```bash
    npm install
    ```
 
-2. Create the local secret file if `.env` does not already exist:
+2. Créez le fichier de secrets local si `.env` n'existe pas déjà :
 
    ```bash
    cp .env.example .env
    chmod 600 .env
    ```
 
-   Edit `.env` and set `DISCORD_TOKEN` and `DEEPSEEK_API_KEY`. Do not overwrite
-   an existing `.env` that already contains real keys.
+   Éditez `.env` et renseignez `DISCORD_TOKEN` et `DEEPSEEK_API_KEY`.
+   N'écrasez pas un `.env` existant qui contient déjà de vraies clés.
 
-3. Create and invite the Discord bot:
+3. Créez et invitez le bot Discord :
 
-   1. Create an application at <https://discord.com/developers/applications>.
-   2. Open **Bot**, create a token, and put it in `DISCORD_TOKEN`.
-   3. Under **Privileged Gateway Intents**, enable **Message Content Intent**.
-      The bot needs this for mention-triggered messages.
-   4. Invite the bot with the `bot` and `applications.commands` scopes and grant
-      at least **View Channels**, **Send Messages**, **Read Message History**,
-      and **Use Application Commands**.
-   5. Optional but recommended: put your server ID in `DISCORD_GUILD_ID`. Guild
-      slash commands appear immediately; global commands can take up to an hour.
+   1. Créez une application sur <https://discord.com/developers/applications>.
+   2. Ouvrez **Bot**, créez un jeton et mettez-le dans `DISCORD_TOKEN`.
+   3. Sous **Privileged Gateway Intents**, activez **Message Content Intent**.
+      Le bot en a besoin pour les messages déclenchés par mention.
+   4. Invitez le bot avec les scopes `bot` et `applications.commands` et
+      accordez-lui au minimum **View Channels**, **Send Messages**,
+      **Read Message History** et **Use Application Commands**.
+   5. Facultatif mais recommandé : mettez l'ID de votre serveur dans
+      `DISCORD_GUILD_ID`. Les commandes slash de guilde apparaissent
+      immédiatement ; les commandes globales peuvent mettre jusqu'à une heure.
 
-4. Start the bot:
+4. Démarrez le bot :
 
    ```bash
    npm start
    ```
 
-## Usage
+## Utilisation
 
-| Trigger | Behavior |
+| Déclencheur | Comportement |
 | --- | --- |
-| `@bot-name how does this work?` | Answers in the same channel |
-| DM to the bot | Answers in the DM |
-| `/ask prompt:how does this work?` | Answers through a slash command |
-| `/reset` | Clears this channel's in-memory history |
+| `@nom-du-bot comment ça marche ?` | Répond dans le même salon |
+| MP envoyé au bot | Répond dans le MP |
+| `/q prompt:comment ça marche ?` | Répond via une commande slash |
 
-Conversation history is shared by everyone in the same channel and is lost when
-the process restarts. Use DMs if you want a private conversation.
+L'historique de conversation est partagé par tous les membres d'un même salon
+et est perdu au redémarrage du processus. Utilisez les MP pour une
+conversation privée.
 
-Prompts and generated replies are sent to DeepSeek's API. Treat bot
-conversations as leaving your Discord server.
+Les prompts et les réponses générées sont envoyés à l'API DeepSeek.
+Considérez que les conversations avec le bot quittent votre serveur Discord.
 
 ## Configuration
 
-| Variable | Default | Description |
+| Variable | Défaut | Description |
 | --- | --- | --- |
-| `DISCORD_TOKEN` | required | Discord bot token |
-| `DEEPSEEK_API_KEY` | required | DeepSeek API key |
-| `DISCORD_GUILD_ID` | empty | Register slash commands in this guild only. Empty registers them globally. |
-| `DEEPSEEK_BASE_URL` | `https://api.deepseek.com/anthropic` | Anthropic-compatible DeepSeek endpoint |
-| `DEEPSEEK_MODEL` | `deepseek-v4-flash` | Model name |
-| `DEEPSEEK_THINKING` | `enabled` | `enabled` or `disabled` |
-| `DEEPSEEK_EFFORT` | `max` | `low`, `medium`, `high`, or `max` when thinking is enabled |
-| `DEEPSEEK_MAX_TOKENS` | `8192` | Maximum response tokens, including thinking |
-| `DEEPSEEK_TEMPERATURE` | empty | Optional `0`–`2`; ignored while thinking is enabled |
-| `DEEPSEEK_TIMEOUT_MS` | `180000` | Request timeout in milliseconds |
-| `SYSTEM_PROMPT` | built in | Bot persona/instructions |
-| `MAX_HISTORY_TURNS` | `10` | Number of user/assistant exchanges retained per channel |
-| `MAX_PROMPT_CHARS` | `4000` | Maximum accepted prompt length |
+| `DISCORD_TOKEN` | requis | Jeton du bot Discord |
+| `DEEPSEEK_API_KEY` | requise | Clé API DeepSeek |
+| `DISCORD_GUILD_ID` | vide | Enregistre les commandes slash uniquement dans cette guilde. Vide : enregistrement global. |
+| `DEEPSEEK_BASE_URL` | `https://api.deepseek.com/anthropic` | Endpoint DeepSeek compatible Anthropic |
+| `DEEPSEEK_MODEL` | `deepseek-v4-flash` | Nom du modèle |
+| `DEEPSEEK_THINKING` | `enabled` | `enabled` ou `disabled` |
+| `DEEPSEEK_EFFORT` | `max` | `low`, `medium`, `high` ou `max` quand la réflexion est activée |
+| `DEEPSEEK_MAX_TOKENS` | `8192` | Nombre maximal de jetons de réponse, réflexion comprise |
+| `DEEPSEEK_TEMPERATURE` | vide | Facultatif, de `0` à `2` ; ignoré quand la réflexion est activée |
+| `DEEPSEEK_TIMEOUT_MS` | `180000` | Délai d'expiration des requêtes en millisecondes |
+| `SYSTEM_PROMPT` | intégré | Personnalité/consignes du bot |
+| `MAX_HISTORY_TURNS` | `10` | Nombre d'échanges utilisateur/assistant conservés par salon |
+| `MAX_PROMPT_CHARS` | `4000` | Longueur maximale acceptée d'un prompt |
 
-For faster, cheaper replies, set `DEEPSEEK_THINKING=disabled`. For lower latency
-while keeping thinking, try `DEEPSEEK_EFFORT=high` or `medium`.
+Pour des réponses plus rapides et moins chères, mettez
+`DEEPSEEK_THINKING=disabled`. Pour réduire la latence tout en gardant la
+réflexion, essayez `DEEPSEEK_EFFORT=high` ou `medium`.
 
-The DeepSeek docs currently list `deepseek-flash` as the native model name;
-`deepseek-v4-flash` remains accepted and matches this session's configuration.
-Change `DEEPSEEK_MODEL` if you prefer the native alias.
+La documentation DeepSeek indique actuellement `deepseek-flash` comme nom
+natif du modèle ; `deepseek-v4-flash` reste accepté et correspond à la
+configuration de cette session. Modifiez `DEEPSEEK_MODEL` si vous préférez
+l'alias natif.
 
-## Secret handling
+## Gestion des secrets
 
-- `.env` is listed in `.gitignore` and is created with mode `600`.
-- `.env.example` documents every variable with placeholders only.
-- Tokens are read from the environment and never printed by the bot.
-- Do not put credentials in `README.md`, source files, or command history.
-- If a token or key is exposed, rotate it immediately: reset the Discord bot
-  token and revoke/regenerate the DeepSeek API key.
-- For production, inject `DISCORD_TOKEN` and `DEEPSEEK_API_KEY` from a secret
-  manager instead of keeping them in a file on disk.
+- `.env` est listé dans `.gitignore` et créé avec le mode `600`.
+- `.env.example` documente chaque variable avec des valeurs fictives
+  uniquement.
+- Les jetons sont lus depuis l'environnement et ne sont jamais affichés par
+  le bot.
+- Ne mettez pas de secrets dans `README.md`, les fichiers sources ou
+  l'historique de commandes.
+- Si un jeton ou une clé est exposé, révoquez-le immédiatement : réinitialisez
+  le jeton du bot Discord et révoquez/régénérez la clé API DeepSeek.
+- En production, injectez `DISCORD_TOKEN` et `DEEPSEEK_API_KEY` depuis un
+  gestionnaire de secrets plutôt que de les garder dans un fichier sur disque.
 
-Verify what git will track before committing:
+Vérifiez ce que git s'apprête à versionner avant de committer :
 
 ```bash
 git status --short
@@ -125,23 +136,25 @@ git check-ignore -v .env
 ## Scripts
 
 ```bash
-npm start   # run the bot
-npm run check   # syntax-check the source files
+npm start       # lancer le bot
+npm run check   # vérifier la syntaxe des fichiers source
 ```
 
-## Troubleshooting
+## Dépannage
 
-- **"Used disallowed intents"**: enable Message Content Intent in the Discord
-  developer portal.
-- **Slash commands missing**: set `DISCORD_GUILD_ID` for instant registration,
-  or re-invite the bot with the `applications.commands` scope.
-- **DeepSeek 401**: `DEEPSEEK_API_KEY` is wrong or has been revoked.
-- **DeepSeek 400**: check `DEEPSEEK_MODEL`; the configured endpoint may not
-  support that model name.
-- **Bot ignores pings in servers**: it needs the **Message Content Intent** and
-  permission to read and send messages in that channel.
+- **« Used disallowed intents »** : activez le Message Content Intent dans le
+  portail développeur Discord.
+- **Commandes slash absentes** : renseignez `DISCORD_GUILD_ID` pour un
+  enregistrement immédiat, ou ré-invitez le bot avec le scope
+  `applications.commands`.
+- **DeepSeek 401** : `DEEPSEEK_API_KEY` est fausse ou a été révoquée.
+- **DeepSeek 400** : vérifiez `DEEPSEEK_MODEL` ; l'endpoint configuré ne prend
+  peut-être pas en charge ce nom de modèle.
+- **Le bot ignore les pings dans les serveurs** : il lui faut le
+  **Message Content Intent** et la permission de lire et d'envoyer des
+  messages dans ce salon.
 
-## API references
+## Références API
 
 - <https://api-docs.deepseek.com/>
 - <https://api-docs.deepseek.com/guides/anthropic_api>

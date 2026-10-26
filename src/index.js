@@ -175,16 +175,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   const channelId = interaction.channelId ?? interaction.user.id;
 
   try {
-    if (interaction.commandName === 'reset') {
-      histories.delete(channelId);
-      await interaction.reply({
-        content: 'Conversation history cleared for this channel.',
-        flags: MessageFlags.Ephemeral,
-      });
-      return;
-    }
-
-    if (interaction.commandName !== 'ask') return;
+    if (interaction.commandName !== 'q') return;
 
     const prompt = interaction.options.getString('prompt', true).trim();
     if (!prompt) {
@@ -248,7 +239,7 @@ client.on(Events.MessageCreate, async (message) => {
   try {
     if (!prompt) {
       await message.reply({
-        content: 'Hi! Mention me with a question, or use `/ask`.',
+        content: 'Hi! Mention me with a question, or use `/q`.',
         allowedMentions: { repliedUser: false },
       });
       return;
