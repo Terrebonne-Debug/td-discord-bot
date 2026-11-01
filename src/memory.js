@@ -31,6 +31,11 @@ function normalizeTurns(turns) {
     .map(({ role, content }) => ({ role, content }));
 }
 
+async function closeQuietly(client) {
+  if (!client) return;
+  await client.close().catch(() => {});
+}
+
 async function ensureTtlIndexes(db, ttlDays) {
   if (!ttlDays) return;
 
@@ -39,7 +44,7 @@ async function ensureTtlIndexes(db, ttlDays) {
     try {
       await db.collection(name).createIndex({ updatedAt: 1 }, options);
     } catch (error) {
-      console.warn(`Could not create the TTL index on ${name}: ${error?.message ?? error}`);
+      console.warn(`Could not create the TTL index on ${name}: ${error}`);
     }
   }
 }
@@ -96,10 +101,10 @@ export class MemoryStore {
       return new MemoryStore({ client, db, maxHistoryTurns });
     } catch (error) {
       console.warn(
-        `MongoDB is unavailable (${error?.message ?? error}); ` +
+        `MongoDB is unavailable (${error}); ` +
           'falling back to in-RAM memory, lost on restart.',
       );
-      await client.close().catch(() => {});
+      await closeQuietly(client);
       return new MemoryStore({ maxHistoryTurns });
     }
   }
@@ -197,31 +202,23 @@ export class MemoryStore {
   async showDmHintOnce(userId) {
     if (this.#mode !== 'mongo') return false;
 
-    const existing = await this.#preferences().findOne(
+    const now = new Date();
+    const result = await this.#preferences().updateOne(
       { _id: userId },
-      { projection: { _id: 1 } },
+      {
+        $setOnInsert: { enabled: false, hinted: true, createdAt: now },
+        $set: { updatedAt: now },
+      },
+      { upsert: true },
     );
-    if (existing) return false;
 
-    try {
-      const now = new Date();
-      await this.#preferences().insertOne({
-        _id: userId,
-        enabled: false,
-        hinted: true,
-        createdAt: now,
-        updatedAt: now,
-      });
-      return true;
-    } catch (error) {
-      if (error?.code === 11000) return false;
-      throw error;
-    }
+    // upsertedCount is 1 only for the call that created the document, which
+    // makes this atomic even if two messages arrive at the same time.
+    return result.upsertedCount === 1;
   }
 
   async close() {
-    if (!this.#client) return;
-    await this.#client.close().catch(() => {});
+    await closeQuietly(this.#client);
   }
 
   #collection(scope) {

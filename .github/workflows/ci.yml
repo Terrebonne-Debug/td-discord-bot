@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  basics:
+    name: Basic checks
+    runs-on: [self-hosted, Linux, X64, discord-bot]
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check source syntax
+        run: npm run check
+
+  tests:
+    name: Tests and 100% coverage
+    needs: basics
+    runs-on: [self-hosted, Linux, X64, discord-bot]
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Start an isolated MongoDB
+        run: |
+          docker rm -f td-discord-bot-ci-mongo >/dev/null 2>&1 || true
+          docker run -d --name td-discord-bot-ci-mongo \
+            -p 127.0.0.1:27018:27017 mongo:8
+          for attempt in $(seq 1 30); do
+            if docker exec td-discord-bot-ci-mongo \
+              mongosh --quiet --eval 'db.runCommand({ping:1}).ok' | grep -q 1; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "MongoDB did not become ready" >&2
+          docker logs td-discord-bot-ci-mongo || true
+          exit 1
+
+      - name: Run unit, functional and end-to-end tests
+        env:
+          MONGODB_TEST_URI: mongodb://127.0.0.1:27018
+        run: npm run test:coverage
+
+      - name: Stop the test MongoDB
+        if: always()
+        run: docker rm -f td-discord-bot-ci-mongo >/dev/null 2>&1 || true

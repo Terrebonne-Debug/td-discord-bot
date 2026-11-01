@@ -177,9 +177,42 @@ git check-ignore -v .env
 ## Scripts
 
 ```bash
-npm start       # lancer le bot
-npm run check   # vérifier la syntaxe des fichiers source
+npm start             # lancer le bot
+npm run check         # vérifier la syntaxe des fichiers source
+npm test              # tests unitaires, fonctionnels et bout en bout
+npm run test:coverage # idem, avec un seuil de couverture de 100 %
 ```
+
+## Tests et CI
+
+Les tests utilisent le lanceur intégré à Node (`node --test`) et ne nécessitent
+aucun compte Discord ni clé DeepSeek :
+
+- `test/unit` : configuration, appels DeepSeek, mémoire, helpers du bot.
+- `test/functional` : parcours complets du bot et du démarrage avec des
+  dépendances injectées (client, mémoire, modèle, signaux).
+- `test/e2e` : vrai client `discord.js` face à une passerelle Discord simulée,
+  vrai SDK Anthropic face à un endpoint DeepSeek simulé, et vraie base
+  MongoDB. Ces tests vérifient la séparation canal/MP, l'opt-in `/memo`,
+  l'effacement à la désactivation et la persistance entre instances.
+
+La base des tests est lue dans `MONGODB_TEST_URI` (par défaut
+`mongodb://127.0.0.1:27017`) ; chaque test crée puis supprime sa propre base.
+Pour lancer les tests localement :
+
+```bash
+docker compose up -d
+npm test
+npm run test:coverage
+```
+
+Le workflow `.github/workflows/ci.yml` s'exécute sur le runner auto-hébergé
+portant les étiquettes `self-hosted`, `Linux`, `X64` et `discord-bot`
+(le runner `mkII` du dépôt). Il exécute d'abord les vérifications de base
+(`npm ci`, `npm run check`), puis les tests complets avec un conteneur
+MongoDB isolé sur `127.0.0.1:27018` et des seuils de couverture à 100 %
+(lignes, fonctions et branches) sur `src/**`, hors `src/index.js` (simple
+point d'entrée).
 
 ## Dépannage
 
