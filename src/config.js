@@ -39,6 +39,17 @@ function optionalNumber(name, min, max) {
   return value;
 }
 
+function optionalPositiveInt(name) {
+  const raw = optional(name, '');
+  if (!raw) return null;
+
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new Error(`${name} must be a positive integer (received: ${raw}).`);
+  }
+  return value;
+}
+
 const thinking = optional('DEEPSEEK_THINKING', 'enabled').toLowerCase();
 if (!THINKING_MODES.has(thinking)) {
   throw new Error(`DEEPSEEK_THINKING must be "enabled" or "disabled" (received: ${thinking}).`);
@@ -73,4 +84,11 @@ export const config = Object.freeze({
   ),
   maxHistoryTurns: positiveInt('MAX_HISTORY_TURNS', 10),
   maxPromptChars: positiveInt('MAX_PROMPT_CHARS', 4000),
+
+  // Conversation memory. Without a reachable MongoDB the bot falls back to
+  // in-RAM memory (lost on restart), and private memory stays disabled.
+  mongodbUri: optional('MONGODB_URI', null),
+  mongodbDb: optional('MONGODB_DB', 'td-discord-bot'),
+  mongodbTimeoutMs: positiveInt('MONGODB_TIMEOUT_MS', 5000),
+  memoryTtlDays: optionalPositiveInt('MEMORY_TTL_DAYS'),
 });
