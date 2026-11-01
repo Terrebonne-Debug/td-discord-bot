@@ -1,34 +1,40 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { config } from './config.js';
 
-const client = new Anthropic({
-  apiKey: config.deepseekApiKey,
-  baseURL: config.deepseekBaseUrl,
-  timeout: config.deepseekTimeoutMs,
-  maxRetries: 2,
-});
+export function createDeepSeekClient(settings = config) {
+  return new Anthropic({
+    apiKey: settings.deepseekApiKey,
+    baseURL: settings.deepseekBaseUrl,
+    timeout: settings.deepseekTimeoutMs,
+    maxRetries: 2,
+  });
+}
+
+const defaultClient = createDeepSeekClient();
 
 /**
  * Send a conversation to DeepSeek's Anthropic-compatible endpoint and return
  * the concatenated text blocks. Thinking blocks are deliberately not returned
  * or stored in history.
+ *
+ * `client` and `settings` are injectable so tests never reach the network.
  */
-export async function askDeepSeek(history, prompt) {
+export async function askDeepSeek(history, prompt, client = defaultClient, settings = config) {
   const params = {
-    model: config.deepseekModel,
-    max_tokens: config.deepseekMaxTokens,
-    system: config.systemPrompt,
+    model: settings.deepseekModel,
+    max_tokens: settings.deepseekMaxTokens,
+    system: settings.systemPrompt,
     messages: [...history, { role: 'user', content: prompt }],
   };
 
-  if (config.deepseekTemperature !== null) {
-    params.temperature = config.deepseekTemperature;
+  if (settings.deepseekTemperature !== null) {
+    params.temperature = settings.deepseekTemperature;
   }
 
-  if (config.deepseekThinking === 'enabled') {
+  if (settings.deepseekThinking === 'enabled') {
     params.thinking = { type: 'enabled' };
     // DeepSeek supports output_config.effort on its Anthropic-compatible route.
-    params.output_config = { effort: config.deepseekEffort };
+    params.output_config = { effort: settings.deepseekEffort };
   } else {
     params.thinking = { type: 'disabled' };
   }

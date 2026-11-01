@@ -19,8 +19,10 @@ Tout se modifie dans `.env`, sans toucher au code.
 
 - Mentionnez le bot dans un salon de serveur, ou envoyez-lui un MP.
 - Utilisez la commande slash `/q prompt:<question>`.
-- Mémorise les `MAX_HISTORY_TURNS` derniers échanges par salon (en mémoire
-  uniquement).
+- Mémorise les `MAX_HISTORY_TURNS` derniers échanges par salon dans MongoDB,
+  avec une mémoire privée séparée pour les MP.
+- En MP, la mémoire est désactivée par défaut ; `/memo on` l'active et
+  `/memo off` la désactive et efface l'historique privé.
 - Découpe les réponses longues en plusieurs messages Discord.
 - Supprime toutes les mentions dans les réponses du modèle, pour qu'il ne
   puisse pas ping `@everyone`.
@@ -32,6 +34,8 @@ Tout se modifie dans `.env`, sans toucher au code.
 - Node.js 20 ou plus récent
 - Un jeton de bot Discord
 - Une clé API DeepSeek
+- MongoDB, fourni ici via Docker Compose (facultatif : sans base, le bot
+  fonctionne avec une mémoire volatile)
 
 ## Installation
 
@@ -41,7 +45,16 @@ Tout se modifie dans `.env`, sans toucher au code.
    npm install
    ```
 
-2. Créez le fichier de secrets local si `.env` n'existe pas déjà :
+2. Démarrez MongoDB :
+
+   ```bash
+   docker compose up -d
+   ```
+
+   Le conteneur écoute uniquement sur `127.0.0.1` et ne s'expose pas au
+   réseau.
+
+3. Créez le fichier de secrets local si `.env` n'existe pas déjà :
 
    ```bash
    cp .env.example .env
@@ -51,7 +64,7 @@ Tout se modifie dans `.env`, sans toucher au code.
    Éditez `.env` et renseignez `DISCORD_TOKEN` et `DEEPSEEK_API_KEY`.
    N'écrasez pas un `.env` existant qui contient déjà de vraies clés.
 
-3. Créez et invitez le bot Discord :
+4. Créez et invitez le bot Discord :
 
    1. Créez une application sur <https://discord.com/developers/applications>.
    2. Ouvrez **Bot**, créez un jeton et mettez-le dans `DISCORD_TOKEN`.
@@ -64,7 +77,7 @@ Tout se modifie dans `.env`, sans toucher au code.
       `DISCORD_GUILD_ID`. Les commandes slash de guilde apparaissent
       immédiatement ; les commandes globales peuvent mettre jusqu'à une heure.
 
-4. Démarrez le bot :
+5. Démarrez le bot :
 
    ```bash
    npm start
@@ -77,13 +90,35 @@ Tout se modifie dans `.env`, sans toucher au code.
 | `@nom-du-bot comment ça marche ?` | Répond dans le même salon |
 | MP envoyé au bot | Répond dans le MP |
 | `/q prompt:comment ça marche ?` | Répond via une commande slash |
-
-L'historique de conversation est partagé par tous les membres d'un même salon
-et est perdu au redémarrage du processus. Utilisez les MP pour une
-conversation privée.
+| `/memo on` / `/memo off` | En MP uniquement : active/désactive la mémoire privée |
 
 Les prompts et les réponses générées sont envoyés à l'API DeepSeek.
 Considérez que les conversations avec le bot quittent votre serveur Discord.
+
+## Mémoire
+
+La mémoire est stockée dans MongoDB et survit aux redémarrages du bot.
+
+- **Canaux publics** : chaque canal a une mémoire partagée par tous ses
+  membres et toujours active. Aucun membre ne peut la désactiver, et
+  `/memo` y est refusé.
+- **Messages privés** : chaque utilisateur a une mémoire privée, séparée de
+  toutes les autres. Elle est **désactivée par défaut** : sans `/memo on`,
+  le bot répond en MP sans rien retenir. `/memo off` désactive la mémoire et
+  **supprime l'historique privé** déjà stocké.
+- **Séparation stricte** : les mémoires de canaux et les mémoires privées
+  vivent dans des collections MongoDB distinctes (`channel_memories`, indexée
+  par identifiant de canal, et `dm_memories`, indexée par identifiant
+  d'utilisateur). Une conversation privée ne peut donc jamais alimenter ou
+  lire la mémoire d'un canal, et inversement.
+
+`/memo` est enregistrée globalement pour être utilisable en MP, même quand
+`DISCORD_GUILD_ID` est défini : les commandes de guilde n'existent pas en MP.
+Elle peut mettre jusqu'à une heure à apparaître la première fois.
+
+Si MongoDB est injoignable au démarrage, le bot continue avec une mémoire
+volatile (perdue au redémarrage) : la mémoire privée reste désactivée et
+`/memo` répond qu'elle est indisponible.
 
 ## Configuration
 
@@ -100,8 +135,12 @@ Considérez que les conversations avec le bot quittent votre serveur Discord.
 | `DEEPSEEK_TEMPERATURE` | vide | Facultatif, de `0` à `2` ; ignoré quand la réflexion est activée |
 | `DEEPSEEK_TIMEOUT_MS` | `180000` | Délai d'expiration des requêtes en millisecondes |
 | `SYSTEM_PROMPT` | intégré | Personnalité/consignes du bot |
-| `MAX_HISTORY_TURNS` | `10` | Nombre d'échanges utilisateur/assistant conservés par salon |
+| `MAX_HISTORY_TURNS` | `10` | Nombre d'échanges utilisateur/assistant conservés par canal ou conversation privée |
 | `MAX_PROMPT_CHARS` | `4000` | Longueur maximale acceptée d'un prompt |
+| `MONGODB_URI` | vide | URI MongoDB. Vide ou connexion impossible : mémoire volatile (perdue au redémarrage), mémoire privée désactivée |
+| `MONGODB_DB` | `td-discord-bot` | Nom de la base MongoDB |
+| `MONGODB_TIMEOUT_MS` | `5000` | Délai de sélection du serveur MongoDB |
+| `MEMORY_TTL_DAYS` | vide | Supprime les mémoires inactives après N jours. Vide : conservation illimitée |
 
 Pour des réponses plus rapides et moins chères, mettez
 `DEEPSEEK_THINKING=disabled`. Pour réduire la latence tout en gardant la
@@ -119,6 +158,8 @@ l'alias natif.
   uniquement.
 - Les jetons sont lus depuis l'environnement et ne sont jamais affichés par
   le bot.
+- L'URI MongoDB peut contenir des identifiants : gardez-la dans `.env` et ne
+  la journalisez pas.
 - Ne mettez pas de secrets dans `README.md`, les fichiers sources ou
   l'historique de commandes.
 - Si un jeton ou une clé est exposé, révoquez-le immédiatement : réinitialisez
@@ -136,9 +177,42 @@ git check-ignore -v .env
 ## Scripts
 
 ```bash
-npm start       # lancer le bot
-npm run check   # vérifier la syntaxe des fichiers source
+npm start             # lancer le bot
+npm run check         # vérifier la syntaxe des fichiers source
+npm test              # tests unitaires, fonctionnels et bout en bout
+npm run test:coverage # idem, avec un seuil de couverture de 100 %
 ```
+
+## Tests et CI
+
+Les tests utilisent le lanceur intégré à Node (`node --test`) et ne nécessitent
+aucun compte Discord ni clé DeepSeek :
+
+- `test/unit` : configuration, appels DeepSeek, mémoire, helpers du bot.
+- `test/functional` : parcours complets du bot et du démarrage avec des
+  dépendances injectées (client, mémoire, modèle, signaux).
+- `test/e2e` : vrai client `discord.js` face à une passerelle Discord simulée,
+  vrai SDK Anthropic face à un endpoint DeepSeek simulé, et vraie base
+  MongoDB. Ces tests vérifient la séparation canal/MP, l'opt-in `/memo`,
+  l'effacement à la désactivation et la persistance entre instances.
+
+La base des tests est lue dans `MONGODB_TEST_URI` (par défaut
+`mongodb://127.0.0.1:27017`) ; chaque test crée puis supprime sa propre base.
+Pour lancer les tests localement :
+
+```bash
+docker compose up -d
+npm test
+npm run test:coverage
+```
+
+Le workflow `.github/workflows/ci.yml` s'exécute sur le runner auto-hébergé
+portant les étiquettes `self-hosted`, `Linux`, `X64` et `discord-bot`
+(le runner `mkII` du dépôt). Il exécute d'abord les vérifications de base
+(`npm ci`, `npm run check`), puis les tests complets avec un conteneur
+MongoDB isolé sur `127.0.0.1:27018` et des seuils de couverture à 100 %
+(lignes, fonctions et branches) sur `src/**`, hors `src/index.js` (simple
+point d'entrée).
 
 ## Dépannage
 
@@ -153,6 +227,13 @@ npm run check   # vérifier la syntaxe des fichiers source
 - **Le bot ignore les pings dans les serveurs** : il lui faut le
   **Message Content Intent** et la permission de lire et d'envoyer des
   messages dans ce salon.
+- **MongoDB injoignable** : démarrez-le avec `docker compose up -d`, puis
+  vérifiez `docker compose logs mongo`. Sans base, le bot fonctionne mais
+  avec une mémoire volatile.
+- **`/memo` absent en MP** : la commande est globale ; sa première
+  propagation peut prendre jusqu'à une heure. `/q` reste soumise à
+  `DISCORD_GUILD_ID` et n'est pas disponible en MP quand cette variable est
+  définie.
 
 ## Références API
 
