@@ -8,25 +8,47 @@ import type {
   ReplyPayload,
   TypingChannel,
 } from '../../src/bot.ts';
+import type { BotLogger } from '../../src/logging.ts';
 import type { ConversationMemory } from '../../src/memory.ts';
 import type { StartupClient } from '../../src/start.ts';
 import type { MemoryScope, Turn } from '../../src/types.ts';
 
 export const BOT_USER_ID = 'bot-user';
 
-export interface Logger {
-  entries: { log: string[]; error: string[] };
-  log(message: string): void;
-  error(message: string): void;
+export type FakeLogLevel = 'debug' | 'info' | 'warn' | 'error';
+
+export interface FakeLogEntry {
+  level: FakeLogLevel;
+  message: string;
+  fields?: Record<string, unknown>;
+}
+
+export interface Logger extends BotLogger {
+  entries: FakeLogEntry[];
+  /** The messages recorded at the given level, in order. */
+  messages(level: FakeLogLevel): string[];
 }
 
 export function createLogger(): Logger {
-  const entries = { log: [] as string[], error: [] as string[] };
-  return {
+  const entries: FakeLogEntry[] = [];
+  const record =
+    (level: FakeLogLevel) =>
+    (message: string, fields?: Record<string, unknown>): void => {
+      entries.push(fields === undefined ? { level, message } : { level, message, fields });
+    };
+
+  const logger: Logger = {
     entries,
-    log: (message) => entries.log.push(message),
-    error: (message) => entries.error.push(message),
+    messages: (level) =>
+      entries.filter((entry) => entry.level === level).map((entry) => entry.message),
+    debug: record('debug'),
+    info: record('info'),
+    warn: record('warn'),
+    error: record('error'),
+    child: () => logger,
+    flush: async () => {},
   };
+  return logger;
 }
 
 export interface FakeGuild {

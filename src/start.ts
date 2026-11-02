@@ -1,9 +1,12 @@
 import { Client, Events, GatewayIntentBits, Partials } from 'discord.js';
 import { config } from './config.ts';
+import type { LogLevel } from './config.ts';
 import { MemoryStore } from './memory.ts';
 import type { ConversationMemory, MemoryConnectOptions } from './memory.ts';
 import { createBot, registerCommands } from './bot.ts';
-import type { BotClient, BotLogger } from './bot.ts';
+import type { BotClient } from './bot.ts';
+import { createConsoleLogger, createRootLogger } from './logging.ts';
+import type { BotLogger } from './logging.ts';
 
 /** The configuration values start() reads; the full Config satisfies this. */
 export interface StartupConfig {
@@ -19,6 +22,7 @@ export interface StartupConfig {
   mongodbDb: string;
   mongodbTimeoutMs: number;
   memoryTtlDays: number | null;
+  logLevel: LogLevel;
 }
 
 /** The slice of the Discord client the startup flow needs. */
@@ -53,7 +57,7 @@ export function createDefaultClient(): Client {
 export function installShutdownHandlers({
   client,
   memory,
-  logger = console,
+  logger = createConsoleLogger(),
   processRef = process,
 }: {
   client: { destroy(): void };
@@ -66,9 +70,15 @@ export function installShutdownHandlers({
   const shutdown = async (signal: string): Promise<boolean> => {
     if (shuttingDown) return false;
     shuttingDown = true;
-    logger.log(`Received ${signal}; shutting down.`);
+    const startedAt = performance.now();
+    logger.info(`Received ${signal}; shutting down.`);
     client.destroy();
     await memory.close();
+    logger.info('Shutdown terminé', {
+      signal,
+      ms: Math.round(performance.now() - startedAt),
+    });
+    await logger.flush();
     return true;
   };
 
@@ -93,7 +103,7 @@ export async function start({
   appConfig = config,
   createClient = createDefaultClient,
   connectMemory = MemoryStore.connect,
-  logger = console,
+  logger = createRootLogger(config),
   processRef = process,
 }: {
   appConfig?: StartupConfig;
@@ -102,12 +112,21 @@ export async function start({
   logger?: BotLogger;
   processRef?: ProcessLike;
 } = {}) {
+  logger.info('Démarrage du bot', {
+    model: appConfig.deepseekModel,
+    thinking: appConfig.deepseekThinking,
+    effort: appConfig.deepseekEffort,
+    maxHistoryTurns: appConfig.maxHistoryTurns,
+    logLevel: appConfig.logLevel,
+  });
+
   const memory = await connectMemory({
     uri: appConfig.mongodbUri,
     dbName: appConfig.mongodbDb,
     timeoutMs: appConfig.mongodbTimeoutMs,
     maxHistoryTurns: appConfig.maxHistoryTurns,
     ttlDays: appConfig.memoryTtlDays,
+    logger,
   });
 
   const client = createClient();
@@ -115,15 +134,15 @@ export async function start({
 
   const ready = new Promise<void>((resolve) => {
     client.once(Events.ClientReady, async (readyClient) => {
-      logger.log(`Logged in as ${readyClient.user.tag}.`);
-      logger.log(
+      logger.info(`Logged in as ${readyClient.user.tag}.`);
+      logger.info(
         `DeepSeek: model=${appConfig.deepseekModel} base=${appConfig.deepseekBaseUrl} ` +
           `thinking=${appConfig.deepseekThinking}` +
           (appConfig.deepseekThinking === 'enabled'
             ? ` effort=${appConfig.deepseekEffort}`
             : ''),
       );
-      logger.log(
+      logger.info(
         memory.mode === 'mongo'
           ? `Memory: MongoDB db=${appConfig.mongodbDb}` +
               (appConfig.memoryTtlDays ? ` ttl=${appConfig.memoryTtlDays}d` : '') +

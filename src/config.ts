@@ -2,9 +2,11 @@ import 'dotenv/config';
 
 export type ThinkingMode = 'enabled' | 'disabled';
 export type EffortLevel = 'low' | 'medium' | 'high' | 'max';
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 const THINKING_MODES = new Set<string>(['enabled', 'disabled']);
 const EFFORT_LEVELS = new Set<string>(['low', 'medium', 'high', 'max']);
+const LOG_LEVELS = new Set<string>(['debug', 'info', 'warn', 'error']);
 
 /** Every configuration value, after validation and defaulting. */
 export interface Config {
@@ -28,6 +30,12 @@ export interface Config {
   mongodbDb: string;
   mongodbTimeoutMs: number;
   memoryTtlDays: number | null;
+
+  logLevel: LogLevel;
+  logDir: string;
+  logFileEnabled: boolean;
+  logMaxSizeMb: number;
+  logRetentionDays: number;
 }
 
 function required(env: NodeJS.ProcessEnv, name: string): string {
@@ -77,6 +85,13 @@ function optionalPositiveInt(env: NodeJS.ProcessEnv, name: string): number | nul
   return value;
 }
 
+function optionalBoolean(env: NodeJS.ProcessEnv, name: string, fallback: boolean): boolean {
+  const raw = optional(env, name, String(fallback)).toLowerCase();
+  if (raw === 'true') return true;
+  if (raw === 'false') return false;
+  throw new Error(`${name} must be "true" or "false" (received: ${raw}).`);
+}
+
 /**
  * Build the frozen configuration from an environment-like object. Exported as
  * a pure function so every validation branch can be tested without reloading
@@ -96,6 +111,12 @@ export function parseConfig(env: NodeJS.ProcessEnv = process.env): Readonly<Conf
     );
   }
   const effort = effortRaw as EffortLevel;
+
+  const logLevelRaw = optional(env, 'LOG_LEVEL', 'info').toLowerCase();
+  if (!LOG_LEVELS.has(logLevelRaw)) {
+    throw new Error(`LOG_LEVEL must be one of ${[...LOG_LEVELS].join(', ')} (received: ${logLevelRaw}).`);
+  }
+  const logLevel = logLevelRaw as LogLevel;
 
   return Object.freeze({
     discordToken: required(env, 'DISCORD_TOKEN'),
@@ -127,6 +148,12 @@ export function parseConfig(env: NodeJS.ProcessEnv = process.env): Readonly<Conf
     mongodbDb: optional(env, 'MONGODB_DB', 'td-discord-bot'),
     mongodbTimeoutMs: positiveInt(env, 'MONGODB_TIMEOUT_MS', 5000),
     memoryTtlDays: optionalPositiveInt(env, 'MEMORY_TTL_DAYS'),
+
+    logLevel,
+    logDir: optional(env, 'LOG_DIR', './logs'),
+    logFileEnabled: optionalBoolean(env, 'LOG_FILE_ENABLED', true),
+    logMaxSizeMb: positiveInt(env, 'LOG_MAX_SIZE_MB', 10),
+    logRetentionDays: positiveInt(env, 'LOG_RETENTION_DAYS', 14),
   });
 }
 

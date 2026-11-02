@@ -3,6 +3,8 @@ import type { MessageMentionOptions } from 'discord.js';
 import { askDeepSeek, describeDeepSeekError } from './deepseek.ts';
 import { MemoryUnavailableError } from './memory.ts';
 import type { ConversationMemory } from './memory.ts';
+import { createConsoleLogger } from './logging.ts';
+import type { BotLogger } from './logging.ts';
 import type { MemoryScope, Turn } from './types.ts';
 
 const DISCORD_MESSAGE_LIMIT = 2000;
@@ -70,11 +72,6 @@ export interface BotClient {
 export interface BotSettings {
   maxPromptChars: number;
   maxHistoryTurns: number;
-}
-
-export interface BotLogger {
-  log(message: string): void;
-  error(message: string): void;
 }
 
 export function splitMessage(text: string, limit = DISCORD_MESSAGE_LIMIT): string[] {
@@ -176,7 +173,7 @@ export interface CommandClient {
 export async function registerCommands(
   client: CommandClient,
   settings: { discordGuildId: string | null; maxPromptChars: number },
-  logger: BotLogger = console,
+  logger: BotLogger = createConsoleLogger(),
 ): Promise<void> {
   const { q, memo } = buildCommands(settings);
 
@@ -187,10 +184,10 @@ export async function registerCommands(
       // Global registration is required for /memo to work in DMs. After login
       // the application always exists; commands are registered post-ready.
       await client.application!.commands.set([memo]);
-      logger.log(`Registered /q in ${guild.name} and /memo globally.`);
+      logger.info(`Registered /q in ${guild.name} and /memo globally.`);
     } else {
       await client.application!.commands.set([q, memo]);
-      logger.log(
+      logger.info(
         'Registered 2 global slash commands (they can take up to an hour to appear).',
       );
     }
@@ -209,7 +206,7 @@ export function createBot({
   memory,
   settings,
   ask = askDeepSeek,
-  logger = console,
+  logger = createConsoleLogger(),
 }: {
   client: BotClient;
   memory: ConversationMemory;
@@ -234,7 +231,12 @@ export function createBot({
     prompt: string,
     sendReply: (reply: string) => Promise<unknown>,
   ): Promise<boolean> {
-    if (busyConversations.has(lockKey)) return false;
+    const log = logger.child({ scope, key });
+
+    if (busyConversations.has(lockKey)) {
+      log.warn('Conversation occupée : requête ignorée', { lockKey });
+      return false;
+    }
 
     busyConversations.add(lockKey);
     try {
@@ -244,13 +246,19 @@ export function createBot({
       } catch (error) {
         throw new MemoryUnavailableError(error);
       }
+      log.debug('Historique chargé', { turns: history.length });
 
+      const startedAt = performance.now();
       const reply = await ask(history, prompt);
+      log.info('Réponse du modèle reçue', {
+        ms: Math.round(performance.now() - startedAt),
+        chars: reply.length,
+      });
 
       try {
         await memory.appendTurn(scope, key, prompt, reply);
       } catch (error) {
-        logger.error(`Could not save the conversation turn: ${messageOf(error)}`);
+        log.warn(`Could not save the conversation turn: ${messageOf(error)}`);
       }
 
       await sendReply(reply);
@@ -270,9 +278,10 @@ export function createBot({
     try {
       if (await memory.showDmHintOnce(userId)) {
         await sendHint(DM_MEMORY_HINT);
+        logger.debug('Hint de mémoire privée affiché', { userId });
       }
     } catch (error) {
-      logger.error(`Could not show the DM memory hint: ${messageOf(error)}`);
+      logger.warn(`Could not show the DM memory hint: ${messageOf(error)}`);
     }
   }
 
@@ -299,6 +308,9 @@ export function createBot({
 
     try {
       await memory.setDmEnabled(interaction.user.id, enabled);
+      logger.info(enabled ? 'Mémoire privée activée' : 'Mémoire privée désactivée', {
+        userId: interaction.user.id,
+      });
       await interaction.reply({
         content: enabled
           ? `Mémoire privée activée : je retiendrai nos ${settings.maxHistoryTurns} derniers échanges.`
@@ -318,6 +330,7 @@ export function createBot({
 
   async function sendMessageChunks(message: MessageLike, text: string): Promise<void> {
     const chunks = splitMessage(text);
+    logger.debug('Envoi de la réponse', { chunks: chunks.length });
 
     for (const [index, chunk] of chunks.entries()) {
       const payload: ReplyPayload = {
@@ -335,6 +348,7 @@ export function createBot({
 
   async function sendInteractionChunks(interaction: InteractionLike, text: string): Promise<void> {
     const chunks = splitMessage(text);
+    logger.debug('Envoi de la réponse', { chunks: chunks.length });
     const [first, ...rest] = chunks;
 
     await interaction.editReply({
@@ -392,6 +406,12 @@ export function createBot({
         return;
       }
 
+      logger.debug('Question reçue', {
+        source: 'slash',
+        isDM,
+        promptChars: prompt.length,
+      });
+
       await interaction.deferReply();
       const stopTyping = startTyping(interaction.channel);
 
@@ -414,7 +434,10 @@ export function createBot({
         stopTyping();
       }
     } catch (error) {
-      logger.error(`Failed to handle /${interaction.commandName}: ${messageOf(error)}`);
+      logger.error(`Failed to handle /${interaction.commandName}: ${messageOf(error)}`, {
+        scope: target.scope,
+        key: target.key,
+      });
 
       try {
         const content = describeRequestError(error);
@@ -460,6 +483,12 @@ export function createBot({
         return;
       }
 
+      logger.debug('Message reçu', {
+        source: 'message',
+        isDM,
+        promptChars: prompt.length,
+      });
+
       stopTyping = startTyping(message.channel);
       const handled = await respond(target, prompt, (reply) =>
         sendMessageChunks(message, reply),
@@ -477,7 +506,7 @@ export function createBot({
         );
       }
     } catch (error) {
-      logger.error(`Failed to handle message: ${messageOf(error)}`);
+      logger.error(`Failed to handle message: ${messageOf(error)}`, { isDM });
       await message
         .reply({
           content: describeRequestError(error),

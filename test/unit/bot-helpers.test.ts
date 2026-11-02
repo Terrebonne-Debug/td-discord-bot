@@ -120,7 +120,7 @@ test('registerCommands registers /q in the guild and /memo globally', async () =
   assert.equal(client.guildCommands[0].name, 'q');
   assert.equal(client.globalCommands.length, 1);
   assert.equal(client.globalCommands[0].name, 'memo');
-  assert.match(logger.entries.log[0], /Registered \/q in Guild Name and \/memo globally/);
+  assert.match(logger.messages('info')[0], /Registered \/q in Guild Name and \/memo globally/);
 });
 
 test('registerCommands registers both commands globally without a guild id', async () => {
@@ -139,7 +139,7 @@ test('registerCommands registers both commands globally without a guild id', asy
     ['q', 'memo'],
   );
   assert.equal(client.globalCommands[0].options[0].max_length, 6000);
-  assert.match(logger.entries.log[0], /2 global slash commands/);
+  assert.match(logger.messages('info')[0], /2 global slash commands/);
 });
 
 test('registerCommands logs instead of throwing when Discord rejects the update', async () => {
@@ -151,5 +151,5 @@ test('registerCommands logs instead of throwing when Discord rejects the update'
 
   await registerCommands(client, { discordGuildId: 'guild-1', maxPromptChars: 4000 }, logger);
 
-  assert.match(logger.entries.error[0], /Could not register slash commands: discord down/);
+  assert.match(logger.messages('error')[0], /Could not register slash commands: discord down/);
 });

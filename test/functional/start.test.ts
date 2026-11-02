@@ -33,6 +33,7 @@ function appConfig(overrides: Partial<StartupConfig> = {}): StartupConfig {
     mongodbDb: 'test-db',
     mongodbTimeoutMs: 1234,
     memoryTtlDays: 7,
+    logLevel: 'info',
     ...overrides,
   };
 }
@@ -68,7 +69,10 @@ test('shutdown destroys the client and closes memory exactly once', async () => 
   assert.equal(code, 0);
   assert.equal(client.destroyed, true);
   assert.ok(memory.calls.some((call) => call.method === 'close'));
-  assert.deepEqual(logger.entries.log, ['Received SIGINT; shutting down.']);
+  assert.deepEqual(logger.messages('info'), [
+    'Received SIGINT; shutting down.',
+    'Shutdown terminé',
+  ]);
 
   processRef.emit('SIGTERM');
   await new Promise((resolve) => setImmediate(resolve));
@@ -89,7 +93,7 @@ test('a failed shutdown is logged and exits with a non-zero code', async () => {
   const [code] = await once(processRef, 'exit');
 
   assert.equal(code, 1);
-  assert.match(logger.entries.error[0], /Shutdown failed: Error: close failed/);
+  assert.match(logger.messages('error')[0], /Shutdown failed: Error: close failed/);
 });
 
 test('start connects MongoDB, logs settings and registers the commands', async () => {
@@ -117,13 +121,15 @@ test('start connects MongoDB, logs settings and registers the commands', async (
       timeoutMs: 1234,
       maxHistoryTurns: 2,
       ttlDays: 7,
+      logger,
     },
   ]);
   assert.equal(result.client, client);
   assert.equal(result.memory, memory);
   assert.equal(typeof result.shutdown, 'function');
 
-  assert.deepEqual(logger.entries.log, [
+  assert.deepEqual(logger.messages('info'), [
+    'Démarrage du bot',
     'Logged in as TestBot#0001.',
     'DeepSeek: model=deepseek-v4-flash base=http://127.0.0.1:9999 thinking=enabled effort=max',
     'Memory: MongoDB db=test-db ttl=7d.',
@@ -152,7 +158,7 @@ test('start logs MongoDB memory without a TTL when none is configured', async ()
     processRef: makeProcess(),
   });
 
-  assert.ok(logger.entries.log.includes('Memory: MongoDB db=test-db.'));
+  assert.ok(logger.messages('info').includes('Memory: MongoDB db=test-db.'));
 });
 
 test('start logs the in-RAM fallback when MongoDB is unavailable', async () => {
@@ -173,7 +179,8 @@ test('start logs the in-RAM fallback when MongoDB is unavailable', async () => {
     processRef,
   });
 
-  assert.deepEqual(logger.entries.log, [
+  assert.deepEqual(logger.messages('info'), [
+    'Démarrage du bot',
     'Logged in as TestBot#0001.',
     'DeepSeek: model=deepseek-v4-flash base=http://127.0.0.1:9999 thinking=disabled',
     'Memory: in-RAM fallback (lost on restart, private memory disabled).',
@@ -206,5 +213,5 @@ test('start cleans up and rethrows when Discord login fails', async () => {
 
   assert.equal(client.destroyed, true);
   assert.ok(memory.calls.some((call) => call.method === 'close'));
-  assert.deepEqual(logger.entries.log, []);
+  assert.deepEqual(logger.messages('info'), ['Démarrage du bot']);
 });

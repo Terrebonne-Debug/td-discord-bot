@@ -129,6 +129,21 @@ Si MongoDB est injoignable au démarrage, le bot continue avec une mémoire
 volatile (perdue au redémarrage) : la mémoire privée reste désactivée et
 `/memo` répond qu'elle est indisponible.
 
+## Journaux
+
+Les logs sont structurés (JSON dans les fichiers) et ne contiennent **jamais
+le contenu des messages**, uniquement des métadonnées : longueurs,
+identifiants de canal/utilisateur, durées, niveaux.
+
+- **Console** : format lisible dans un terminal, JSON sinon.
+- **Fichiers** (`LOG_DIR`, défaut `./logs`) : `bot-AAAA-MM-JJ.log`, rotation
+  quotidienne et dès que `LOG_MAX_SIZE_MB` est atteint. Un balayage quotidien
+  (et au démarrage) compresse en `.gz` les rotations terminées et supprime
+  les archives plus vieilles que `LOG_RETENTION_DAYS` jours. Le fichier actif
+  du jour n'est jamais touché.
+
+Lire une archive : `zcat logs/bot-2026-11-02.log.1.gz`.
+
 ## Configuration
 
 | Variable | Défaut | Description |
@@ -150,6 +165,11 @@ volatile (perdue au redémarrage) : la mémoire privée reste désactivée et
 | `MONGODB_DB` | `td-discord-bot` | Nom de la base MongoDB |
 | `MONGODB_TIMEOUT_MS` | `5000` | Délai de sélection du serveur MongoDB |
 | `MEMORY_TTL_DAYS` | vide | Supprime les mémoires inactives après N jours. Vide : conservation illimitée |
+| `LOG_LEVEL` | `info` | `debug`, `info`, `warn` ou `error` |
+| `LOG_DIR` | `./logs` | Dossier des fichiers journalisés |
+| `LOG_FILE_ENABLED` | `true` | Active la sortie fichier (rotation + archives) |
+| `LOG_MAX_SIZE_MB` | `10` | Taille maximale d'un fichier avant rotation |
+| `LOG_RETENTION_DAYS` | `14` | Rétention des archives compressées |
 
 Pour des réponses plus rapides et moins chères, mettez
 `DEEPSEEK_THINKING=disabled`. Pour réduire la latence tout en gardant la

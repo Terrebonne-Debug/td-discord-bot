@@ -1,5 +1,7 @@
 import { MongoClient } from 'mongodb';
 import type { Collection, Db } from 'mongodb';
+import { createConsoleLogger } from './logging.ts';
+import type { BotLogger } from './logging.ts';
 import type { MemoryMode, MemoryScope, Turn } from './types.ts';
 
 const CHANNEL_COLLECTION = 'channel_memories';
@@ -38,6 +40,7 @@ export interface MemoryConnectOptions {
   timeoutMs: number;
   maxHistoryTurns: number;
   ttlDays?: number | null;
+  logger?: BotLogger;
 }
 
 /**
@@ -86,7 +89,11 @@ async function closeQuietly(client: Closeable | null | undefined): Promise<void>
   await client.close().catch(() => {});
 }
 
-async function ensureTtlIndexes(db: Db, ttlDays: number | null): Promise<void> {
+async function ensureTtlIndexes(
+  db: Db,
+  ttlDays: number | null,
+  logger: BotLogger,
+): Promise<void> {
   if (!ttlDays) return;
 
   const options = { expireAfterSeconds: ttlDays * 86_400 };
@@ -94,7 +101,7 @@ async function ensureTtlIndexes(db: Db, ttlDays: number | null): Promise<void> {
     try {
       await db.collection(name).createIndex({ updatedAt: 1 }, options);
     } catch (error) {
-      console.warn(`Could not create the TTL index on ${name}: ${error}`);
+      logger.warn(`Could not create the TTL index on ${name}: ${error}`);
     }
   }
 }
@@ -117,21 +124,25 @@ export class MemoryStore implements ConversationMemory {
   #maxMessages: number;
   #channels: Map<string, Turn[]>;
   #mode: MemoryMode;
+  #logger: BotLogger;
 
   constructor({
     client = null,
     db = null,
     maxHistoryTurns,
+    logger = createConsoleLogger(),
   }: {
     client?: Closeable | null;
     db?: Db | null;
     maxHistoryTurns: number;
+    logger?: BotLogger;
   }) {
     this.#client = client;
     this.#db = db;
     this.#maxMessages = maxHistoryTurns * 2;
     this.#channels = new Map();
     this.#mode = db ? 'mongo' : 'memory';
+    this.#logger = logger;
   }
 
   get mode(): MemoryMode {
@@ -144,12 +155,13 @@ export class MemoryStore implements ConversationMemory {
     timeoutMs,
     maxHistoryTurns,
     ttlDays = null,
+    logger = createConsoleLogger(),
   }: MemoryConnectOptions): Promise<MemoryStore> {
     if (!uri) {
-      console.warn(
+      logger.warn(
         'MONGODB_URI is not set; conversation memory stays in RAM and is lost on restart.',
       );
-      return new MemoryStore({ maxHistoryTurns });
+      return new MemoryStore({ maxHistoryTurns, logger });
     }
 
     const client = new MongoClient(uri, {
@@ -158,18 +170,23 @@ export class MemoryStore implements ConversationMemory {
     });
 
     try {
+      const startedAt = performance.now();
       await client.connect();
       const db = client.db(dbName);
       await db.command({ ping: 1 });
-      await ensureTtlIndexes(db, ttlDays);
-      return new MemoryStore({ client, db, maxHistoryTurns });
+      logger.debug('MongoDB connecté', {
+        dbName,
+        ms: Math.round(performance.now() - startedAt),
+      });
+      await ensureTtlIndexes(db, ttlDays, logger);
+      return new MemoryStore({ client, db, maxHistoryTurns, logger });
     } catch (error) {
-      console.warn(
+      logger.warn(
         `MongoDB is unavailable (${error}); ` +
           'falling back to in-RAM memory, lost on restart.',
       );
       await closeQuietly(client);
-      return new MemoryStore({ maxHistoryTurns });
+      return new MemoryStore({ maxHistoryTurns, logger });
     }
   }
 
@@ -181,14 +198,28 @@ export class MemoryStore implements ConversationMemory {
     if (scope === 'dm' && !(await this.isDmEnabled(key))) return [];
 
     if (this.#mode === 'memory') {
-      return normalizeTurns(this.#channels.get(key));
+      const history = normalizeTurns(this.#channels.get(key));
+      this.#logger.debug('Historique lu', {
+        scope,
+        key,
+        mode: this.#mode,
+        turns: history.length,
+      });
+      return history;
     }
 
     const doc = await this.#collection(scope).findOne(
       { _id: key },
       { projection: { turns: { $slice: -this.#maxMessages } } },
     );
-    return normalizeTurns(doc?.turns);
+    const history = normalizeTurns(doc?.turns);
+    this.#logger.debug('Historique lu', {
+      scope,
+      key,
+      mode: this.#mode,
+      turns: history.length,
+    });
+    return history;
   }
 
   async appendTurn(
@@ -212,20 +243,21 @@ export class MemoryStore implements ConversationMemory {
         history.splice(0, history.length - this.#maxMessages);
       }
       this.#channels.set(key, history);
-      return true;
+    } else {
+      await this.#collection(scope).updateOne(
+        { _id: key },
+        {
+          $push: {
+            turns: { $each: turn, $slice: -this.#maxMessages },
+          },
+          $set: { updatedAt: new Date() },
+          $setOnInsert: { createdAt: new Date() },
+        },
+        { upsert: true },
+      );
     }
 
-    await this.#collection(scope).updateOne(
-      { _id: key },
-      {
-        $push: {
-          turns: { $each: turn, $slice: -this.#maxMessages },
-        },
-        $set: { updatedAt: new Date() },
-        $setOnInsert: { createdAt: new Date() },
-      },
-      { upsert: true },
-    );
+    this.#logger.debug('Tour enregistré', { scope, key, mode: this.#mode });
     return true;
   }
 
@@ -258,6 +290,8 @@ export class MemoryStore implements ConversationMemory {
       { upsert: true },
     );
 
+    this.#logger.debug('Préférence de mémoire privée mise à jour', { userId, enabled });
+
     if (!enabled) {
       await this.#collection('dm').deleteOne({ _id: userId });
     }
@@ -283,7 +317,9 @@ export class MemoryStore implements ConversationMemory {
 
     // upsertedCount is 1 only for the call that created the document, which
     // makes this atomic even if two messages arrive at the same time.
-    return result.upsertedCount === 1;
+    const created = result.upsertedCount === 1;
+    this.#logger.debug('Hint de mémoire privée', { userId, created });
+    return created;
   }
 
   async close(): Promise<void> {
