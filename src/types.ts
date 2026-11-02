@@ -7,9 +7,5 @@ export interface Turn {
   content: string;
 }
 
-/** Memory scope: a public channel (keyed by channel id) or a private
- * conversation (keyed by user id, opt-in). */
-export type MemoryScope = 'channel' | 'dm';
-
 /** How conversation memory is backed. */
 export type MemoryMode = 'mongo' | 'memory';

@@ -147,7 +147,7 @@ export async function start({
           ? `Memory: MongoDB db=${appConfig.mongodbDb}` +
               (appConfig.memoryTtlDays ? ` ttl=${appConfig.memoryTtlDays}d` : '') +
               '.'
-          : 'Memory: in-RAM fallback (lost on restart, private memory disabled).',
+          : 'Memory: in-RAM fallback (lost on restart).',
       );
 
       await registerCommands(readyClient, appConfig, logger);

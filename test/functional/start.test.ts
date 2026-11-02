@@ -133,10 +133,9 @@ test('start connects MongoDB, logs settings and registers the commands', async (
     'Logged in as TestBot#0001.',
     'DeepSeek: model=deepseek-v4-flash base=http://127.0.0.1:9999 thinking=enabled effort=max',
     'Memory: MongoDB db=test-db ttl=7d.',
-    'Registered /q in Guild Name and /memo globally.',
+    'Registered /q in Guild Name.',
   ]);
-  assert.equal(client.globalCommands.length, 1);
-  assert.equal(client.globalCommands[0].name, 'memo');
+  assert.equal(client.globalCommands.length, 0);
   assert.equal(client.guildCommands.length, 1);
   assert.equal(client.guildCommands[0].name, 'q');
 
@@ -183,12 +182,12 @@ test('start logs the in-RAM fallback when MongoDB is unavailable', async () => {
     'Démarrage du bot',
     'Logged in as TestBot#0001.',
     'DeepSeek: model=deepseek-v4-flash base=http://127.0.0.1:9999 thinking=disabled',
-    'Memory: in-RAM fallback (lost on restart, private memory disabled).',
-    'Registered 2 global slash commands (they can take up to an hour to appear).',
+    'Memory: in-RAM fallback (lost on restart).',
+    'Registered 1 global slash command (it can take up to an hour to appear).',
   ]);
   assert.deepEqual(
     client.globalCommands.map((command) => command.name),
-    ['q', 'memo'],
+    ['q'],
   );
 });
 

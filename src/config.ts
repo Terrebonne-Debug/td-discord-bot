@@ -143,7 +143,7 @@ export function parseConfig(env: NodeJS.ProcessEnv = process.env): Readonly<Conf
     maxPromptChars: positiveInt(env, 'MAX_PROMPT_CHARS', 4000),
 
     // Conversation memory. Without a reachable MongoDB the bot falls back to
-    // in-RAM memory (lost on restart), and private memory stays disabled.
+    // in-RAM memory (lost on restart).
     mongodbUri: optional(env, 'MONGODB_URI', '') || null,
     mongodbDb: optional(env, 'MONGODB_DB', 'td-discord-bot'),
     mongodbTimeoutMs: positiveInt(env, 'MONGODB_TIMEOUT_MS', 5000),

@@ -19,10 +19,8 @@ Tout se modifie dans `.env`, sans toucher au code.
 
 - Mentionnez le bot dans un salon de serveur, ou envoyez-lui un MP.
 - Utilisez la commande slash `/q prompt:<question>`.
-- Mémorise les `MAX_HISTORY_TURNS` derniers échanges par salon dans MongoDB,
-  avec une mémoire privée séparée pour les MP.
-- En MP, la mémoire est désactivée par défaut ; `/memo on` l'active et
-  `/memo off` la désactive et efface l'historique privé.
+- Mémorise les `MAX_HISTORY_TURNS` derniers échanges par salon dans MongoDB.
+- En MP, le bot répond sans rien mémoriser.
 - Découpe les réponses longues en plusieurs messages Discord.
 - Supprime toutes les mentions dans les réponses du modèle, pour qu'il ne
   puisse pas ping `@everyone`.
@@ -89,9 +87,8 @@ Tout se modifie dans `.env`, sans toucher au code.
 | Déclencheur | Comportement |
 | --- | --- |
 | `@nom-du-bot comment ça marche ?` | Répond dans le même salon |
-| MP envoyé au bot | Répond dans le MP |
+| MP envoyé au bot | Répond dans le MP, sans mémoire |
 | `/q prompt:comment ça marche ?` | Répond via une commande slash |
-| `/memo on` / `/memo off` | En MP uniquement : active/désactive la mémoire privée |
 
 Les prompts et les réponses générées sont envoyés à l'API DeepSeek.
 Considérez que les conversations avec le bot quittent votre serveur Discord.
@@ -109,25 +106,13 @@ types (`npm run check`). Seule la syntaxe TypeScript effaçable est utilisée
 La mémoire est stockée dans MongoDB et survit aux redémarrages du bot.
 
 - **Canaux publics** : chaque canal a une mémoire partagée par tous ses
-  membres et toujours active. Aucun membre ne peut la désactiver, et
-  `/memo` y est refusé.
-- **Messages privés** : chaque utilisateur a une mémoire privée, séparée de
-  toutes les autres. Elle est **désactivée par défaut** : sans `/memo on`,
-  le bot répond en MP sans rien retenir. `/memo off` désactive la mémoire et
-  **supprime l'historique privé** déjà stocké.
-- **Séparation stricte** : les mémoires de canaux et les mémoires privées
-  vivent dans des collections MongoDB distinctes (`channel_memories`, indexée
-  par identifiant de canal, et `dm_memories`, indexée par identifiant
-  d'utilisateur). Une conversation privée ne peut donc jamais alimenter ou
-  lire la mémoire d'un canal, et inversement.
-
-`/memo` est enregistrée globalement pour être utilisable en MP, même quand
-`DISCORD_GUILD_ID` est défini : les commandes de guilde n'existent pas en MP.
-Elle peut mettre jusqu'à une heure à apparaître la première fois.
+  membres et toujours active, dans la collection `channel_memories`, indexée
+  par identifiant de canal.
+- **Messages privés** : le bot répond en MP **sans rien mémoriser** — aucun
+  échange privé n'est enregistré ni lu en base de données.
 
 Si MongoDB est injoignable au démarrage, le bot continue avec une mémoire
-volatile (perdue au redémarrage) : la mémoire privée reste désactivée et
-`/memo` répond qu'elle est indisponible.
+volatile (perdue au redémarrage).
 
 ## Journaux
 
@@ -159,9 +144,9 @@ Lire une archive : `zcat logs/bot-2026-11-02.log.1.gz`.
 | `DEEPSEEK_TEMPERATURE` | vide | Facultatif, de `0` à `2` ; ignoré quand la réflexion est activée |
 | `DEEPSEEK_TIMEOUT_MS` | `180000` | Délai d'expiration des requêtes en millisecondes |
 | `SYSTEM_PROMPT` | intégré | Personnalité/consignes du bot |
-| `MAX_HISTORY_TURNS` | `10` | Nombre d'échanges utilisateur/assistant conservés par canal ou conversation privée |
+| `MAX_HISTORY_TURNS` | `10` | Nombre d'échanges utilisateur/assistant conservés par canal |
 | `MAX_PROMPT_CHARS` | `4000` | Longueur maximale acceptée d'un prompt |
-| `MONGODB_URI` | vide | URI MongoDB. Vide ou connexion impossible : mémoire volatile (perdue au redémarrage), mémoire privée désactivée |
+| `MONGODB_URI` | vide | URI MongoDB. Vide ou connexion impossible : mémoire volatile (perdue au redémarrage) |
 | `MONGODB_DB` | `td-discord-bot` | Nom de la base MongoDB |
 | `MONGODB_TIMEOUT_MS` | `5000` | Délai de sélection du serveur MongoDB |
 | `MEMORY_TTL_DAYS` | vide | Supprime les mémoires inactives après N jours. Vide : conservation illimitée |
@@ -222,8 +207,8 @@ aucun compte Discord ni clé DeepSeek :
   dépendances injectées (client, mémoire, modèle, signaux).
 - `test/e2e` : vrai client `discord.js` face à une passerelle Discord simulée,
   vrai SDK Anthropic face à un endpoint DeepSeek simulé, et vraie base
-  MongoDB. Ces tests vérifient la séparation canal/MP, l'opt-in `/memo`,
-  l'effacement à la désactivation et la persistance entre instances.
+  MongoDB. Ces tests vérifient la mémoire partagée des canaux, l'absence de
+  toute écriture côté MP et la persistance entre instances.
 
 La base des tests est lue dans `MONGODB_TEST_URI` (par défaut
 `mongodb://127.0.0.1:27017`) ; chaque test crée puis supprime sa propre base.
@@ -259,10 +244,9 @@ point d'entrée).
 - **MongoDB injoignable** : démarrez-le avec `docker compose up -d`, puis
   vérifiez `docker compose logs mongo`. Sans base, le bot fonctionne mais
   avec une mémoire volatile.
-- **`/memo` absent en MP** : la commande est globale ; sa première
-  propagation peut prendre jusqu'à une heure. `/q` reste soumise à
-  `DISCORD_GUILD_ID` et n'est pas disponible en MP quand cette variable est
-  définie.
+- **`/q` absente en MP** : `/q` est soumise à `DISCORD_GUILD_ID` et n'est
+  pas disponible en MP quand cette variable est définie. Un MP mentionnant
+  le bot reste toutefois pris en charge sans mémoire.
 
 ## Références API
 
