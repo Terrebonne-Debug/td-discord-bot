@@ -5,13 +5,10 @@ import { MemoryUnavailableError } from './memory.ts';
 import type { ConversationMemory } from './memory.ts';
 import { createConsoleLogger } from './logging.ts';
 import type { BotLogger } from './logging.ts';
-import type { MemoryScope, Turn } from './types.ts';
+import type { Turn } from './types.ts';
 
 const DISCORD_MESSAGE_LIMIT = 2000;
 const TYPING_INTERVAL_MS = 8_000;
-
-const DM_MEMORY_HINT =
-  'Astuce : en privé, la mémoire est désactivée par défaut. Activez-la avec `/memo on`.';
 
 export interface ReplyPayload {
   content: string;
@@ -37,7 +34,6 @@ export interface InteractionLike {
   options: {
     getString(name: string, required: true): string;
     getString(name: string, required?: boolean): string | null;
-    getSubcommand(): string;
   };
   deferReply(): Promise<unknown>;
   reply(payload: ReplyPayload): Promise<unknown>;
@@ -71,7 +67,6 @@ export interface BotClient {
 /** The settings createBot reads; the full Config satisfies this. */
 export interface BotSettings {
   maxPromptChars: number;
-  maxHistoryTurns: number;
 }
 
 export function splitMessage(text: string, limit = DISCORD_MESSAGE_LIMIT): string[] {
@@ -129,8 +124,8 @@ export function describeRequestError(error: unknown): string {
   return describeDeepSeekError(error);
 }
 
-function buildCommands(settings: { maxPromptChars: number }) {
-  const q = new SlashCommandBuilder()
+function buildQuestionCommand(settings: { maxPromptChars: number }) {
+  return new SlashCommandBuilder()
     .setName('q')
     .setDescription('Pose une question')
     .addStringOption((option) =>
@@ -141,23 +136,6 @@ function buildCommands(settings: { maxPromptChars: number }) {
         .setMaxLength(Math.min(settings.maxPromptChars, 6000)),
     )
     .toJSON();
-
-  // /memo is registered globally so it can be used in DMs, where guild
-  // commands do not exist. It has no effect in a public channel.
-  const memo = new SlashCommandBuilder()
-    .setName('memo')
-    .setDescription('Gère la mémoire privée de nos échanges en MP')
-    .addSubcommand((subcommand) =>
-      subcommand.setName('on').setDescription('Active la mémoire de nos échanges privés'),
-    )
-    .addSubcommand((subcommand) =>
-      subcommand
-        .setName('off')
-        .setDescription("Désactive la mémoire privée et efface l'historique stocké"),
-    )
-    .toJSON();
-
-  return { q, memo };
 }
 
 /** The slice of the Discord client registerCommands needs. */
@@ -175,21 +153,18 @@ export async function registerCommands(
   settings: { discordGuildId: string | null; maxPromptChars: number },
   logger: BotLogger = createConsoleLogger(),
 ): Promise<void> {
-  const { q, memo } = buildCommands(settings);
+  const q = buildQuestionCommand(settings);
 
   try {
     if (settings.discordGuildId) {
       const guild = await client.guilds.fetch(settings.discordGuildId);
       await guild.commands.set([q]);
-      // Global registration is required for /memo to work in DMs. After login
-      // the application always exists; commands are registered post-ready.
-      await client.application!.commands.set([memo]);
-      logger.info(`Registered /q in ${guild.name} and /memo globally.`);
+      logger.info(`Registered /q in ${guild.name}.`);
     } else {
-      await client.application!.commands.set([q, memo]);
-      logger.info(
-        'Registered 2 global slash commands (they can take up to an hour to appear).',
-      );
+      // After login the application always exists; commands are registered
+      // post-ready.
+      await client.application!.commands.set([q]);
+      logger.info('Registered 1 global slash command (it can take up to an hour to appear).');
     }
   } catch (error) {
     logger.error(`Could not register slash commands: ${messageOf(error)}`);
@@ -221,17 +196,16 @@ export function createBot({
    * reply has been sent, so two answers cannot interleave in the same
    * conversation.
    *
-   * `scope` picks the memory collection: 'channel' reads channel_memories with
-   * a channel id, 'dm' reads dm_memories with a user id and only when that
-   * user opted in. Callers derive both from the event source, never from user
-   * input.
+   * `memoryKey` is the channel id whose shared memory is read and appended,
+   * or null for private messages, which are never stored. Callers derive it
+   * from the event source, never from user input.
    */
   async function respond(
-    { lockKey, scope, key }: { lockKey: string; scope: MemoryScope; key: string },
+    { lockKey, memoryKey }: { lockKey: string; memoryKey: string | null },
     prompt: string,
     sendReply: (reply: string) => Promise<unknown>,
   ): Promise<boolean> {
-    const log = logger.child({ scope, key });
+    const log = logger.child(memoryKey === null ? {} : { key: memoryKey });
 
     if (busyConversations.has(lockKey)) {
       log.warn('Conversation occupée : requête ignorée', { lockKey });
@@ -240,11 +214,13 @@ export function createBot({
 
     busyConversations.add(lockKey);
     try {
-      let history: Turn[];
-      try {
-        history = await memory.getHistory(scope, key);
-      } catch (error) {
-        throw new MemoryUnavailableError(error);
+      let history: Turn[] = [];
+      if (memoryKey !== null) {
+        try {
+          history = await memory.getHistory(memoryKey);
+        } catch (error) {
+          throw new MemoryUnavailableError(error);
+        }
       }
       log.debug('Historique chargé', { turns: history.length });
 
@@ -255,76 +231,18 @@ export function createBot({
         chars: reply.length,
       });
 
-      try {
-        await memory.appendTurn(scope, key, prompt, reply);
-      } catch (error) {
-        log.warn(`Could not save the conversation turn: ${messageOf(error)}`);
+      if (memoryKey !== null) {
+        try {
+          await memory.appendTurn(memoryKey, prompt, reply);
+        } catch (error) {
+          log.warn(`Could not save the conversation turn: ${messageOf(error)}`);
+        }
       }
 
       await sendReply(reply);
       return true;
     } finally {
       busyConversations.delete(lockKey);
-    }
-  }
-
-  /** Show the DM opt-in hint at most once per user. */
-  async function maybeShowDmHint(
-    userId: string,
-    sendHint: (content: string) => Promise<unknown>,
-  ): Promise<void> {
-    if (memory.mode !== 'mongo') return;
-
-    try {
-      if (await memory.showDmHintOnce(userId)) {
-        await sendHint(DM_MEMORY_HINT);
-        logger.debug('Hint de mémoire privée affiché', { userId });
-      }
-    } catch (error) {
-      logger.warn(`Could not show the DM memory hint: ${messageOf(error)}`);
-    }
-  }
-
-  async function handleMemo(interaction: InteractionLike): Promise<void> {
-    if (interaction.inGuild()) {
-      await interaction.reply({
-        content:
-          "Ce choix n'existe qu'en message privé. Dans un canal, la mémoire du canal est partagée et toujours active.",
-        flags: MessageFlags.Ephemeral,
-      });
-      return;
-    }
-
-    if (memory.mode !== 'mongo') {
-      await interaction.reply({
-        content:
-          'La mémoire privée nécessite MongoDB, actuellement indisponible. Nos échanges restent sans mémoire.',
-        flags: MessageFlags.Ephemeral,
-      });
-      return;
-    }
-
-    const enabled = interaction.options.getSubcommand() === 'on';
-
-    try {
-      await memory.setDmEnabled(interaction.user.id, enabled);
-      logger.info(enabled ? 'Mémoire privée activée' : 'Mémoire privée désactivée', {
-        userId: interaction.user.id,
-      });
-      await interaction.reply({
-        content: enabled
-          ? `Mémoire privée activée : je retiendrai nos ${settings.maxHistoryTurns} derniers échanges.`
-          : 'Mémoire privée désactivée et historique effacé.',
-        flags: MessageFlags.Ephemeral,
-      });
-    } catch (error) {
-      logger.error(`Could not update the DM memory preference: ${messageOf(error)}`);
-      await interaction
-        .reply({
-          content: 'Impossible de modifier la mémoire privée pour le moment. Réessayez plus tard.',
-          flags: MessageFlags.Ephemeral,
-        })
-        .catch(() => {});
     }
   }
 
@@ -367,25 +285,15 @@ export function createBot({
   async function handleInteraction(interaction: InteractionLike): Promise<void> {
     if (!interaction.isChatInputCommand()) return;
 
-    if (interaction.commandName === 'memo') {
-      try {
-        await handleMemo(interaction);
-      } catch (error) {
-        logger.error(`Failed to handle /memo: ${messageOf(error)}`);
-      }
-      return;
-    }
-
     if (interaction.commandName !== 'q') return;
 
     const isDM = !interaction.inGuild();
     const target = isDM
-      ? { lockKey: interaction.user.id, scope: 'dm' as const, key: interaction.user.id }
+      ? { lockKey: interaction.user.id, memoryKey: null }
       : {
           // A guild interaction always carries a channel id.
           lockKey: interaction.channelId!,
-          scope: 'channel' as const,
-          key: interaction.channelId!,
+          memoryKey: interaction.channelId!,
         };
 
     try {
@@ -425,18 +333,13 @@ export function createBot({
             content:
               'I am still working on the previous question in this channel. Try again shortly.',
           });
-        } else if (isDM) {
-          await maybeShowDmHint(interaction.user.id, (content) =>
-            interaction.followUp({ content, flags: MessageFlags.Ephemeral }),
-          );
         }
       } finally {
         stopTyping();
       }
     } catch (error) {
       logger.error(`Failed to handle /${interaction.commandName}: ${messageOf(error)}`, {
-        scope: target.scope,
-        key: target.key,
+        key: target.memoryKey,
       });
 
       try {
@@ -460,8 +363,8 @@ export function createBot({
     if (!isDM && !mentioned) return;
 
     const target = isDM
-      ? { lockKey: message.author.id, scope: 'dm' as const, key: message.author.id }
-      : { lockKey: message.channelId, scope: 'channel' as const, key: message.channelId };
+      ? { lockKey: message.author.id, memoryKey: null }
+      : { lockKey: message.channelId, memoryKey: message.channelId };
 
     const prompt = stripBotMention(message.content, client.user?.id);
     let stopTyping = () => {};
@@ -500,10 +403,6 @@ export function createBot({
             'I am still working on the previous question in this channel. Try again shortly.',
           allowedMentions: { repliedUser: false },
         });
-      } else if (isDM) {
-        await maybeShowDmHint(message.author.id, (content) =>
-          message.channel.send({ content }),
-        );
       }
     } catch (error) {
       logger.error(`Failed to handle message: ${messageOf(error)}`, { isDM });

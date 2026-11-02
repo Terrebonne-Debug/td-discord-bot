@@ -17,7 +17,6 @@ import type { FakeClient, FakeMemory } from '../helpers/fakes.ts';
 
 const settings: BotSettings = {
   maxPromptChars: 50,
-  maxHistoryTurns: 2,
 };
 
 const memoOn = MessageFlags.Ephemeral;
@@ -51,7 +50,7 @@ async function deferred() {
 
 test('/q in a guild uses shared channel memory and replies through the interaction', async () => {
   const memory = createFakeMemory({
-    histories: { 'channel:channel-1': [{ role: 'user', content: 'earlier' }] },
+    histories: { 'channel-1': [{ role: 'user', content: 'earlier' }] },
   });
   const asks: Array<{ history: Turn[]; prompt: string }> = [];
   const { bot, logger } = setup({
@@ -80,10 +79,10 @@ test('/q in a guild uses shared channel memory and replies through the interacti
   assert.deepEqual(
     memory.calls
       .filter((call) => call.method === 'getHistory' || call.method === 'appendTurn')
-      .map(({ method, scope, key }) => ({ method, scope, key })),
+      .map(({ method, key }) => ({ method, key })),
     [
-      { method: 'getHistory', scope: 'channel', key: 'channel-1' },
-      { method: 'appendTurn', scope: 'channel', key: 'channel-1' },
+      { method: 'getHistory', key: 'channel-1' },
+      { method: 'appendTurn', key: 'channel-1' },
     ],
   );
 
@@ -96,9 +95,16 @@ test('/q in a guild uses shared channel memory and replies through the interacti
   assert.deepEqual(logger.messages('error'), []);
 });
 
-test('/q in a DM uses private memory and shows the opt-in hint once', async () => {
-  const memory = createFakeMemory({ hintResults: [true] });
-  const { bot } = setup({ memory, ask: async () => 'private answer' });
+test('/q in a DM answers without reading or storing any memory', async () => {
+  const memory = createFakeMemory({ histories: { 'user-1': [{ role: 'user', content: 'old' }] } });
+  const asks: Array<{ history: Turn[]; prompt: string }> = [];
+  const { bot } = setup({
+    memory,
+    ask: async (history, prompt) => {
+      asks.push({ history, prompt });
+      return 'private answer';
+    },
+  });
 
   const interaction = createFakeInteraction({
     guildId: null,
@@ -109,67 +115,15 @@ test('/q in a DM uses private memory and shows the opt-in hint once', async () =
 
   await bot.handleInteraction(interaction);
 
-  assert.deepEqual(
-    memory.calls
-      .filter((call) => ['getHistory', 'appendTurn', 'showDmHintOnce'].includes(call.method))
-      .map(({ method, scope, key, userId }) => ({ method, scope, key, userId })),
-    [
-      { method: 'getHistory', scope: 'dm', key: 'user-1', userId: undefined },
-      { method: 'appendTurn', scope: 'dm', key: 'user-1', userId: undefined },
-      { method: 'showDmHintOnce', scope: undefined, key: undefined, userId: 'user-1' },
-    ],
+  assert.deepEqual(asks, [{ history: [], prompt: 'hello' }]);
+  assert.equal(
+    memory.calls.some(
+      (call) => call.method === 'getHistory' || call.method === 'appendTurn',
+    ),
+    false,
   );
-
-  const hint = interaction.calls.at(-1);
-  assert.equal(hint?.method, 'followUp');
-  assert.match(hint?.payload?.content ?? '', /mémoire est désactivée par défaut/);
-  assert.equal(hint?.payload?.flags, memoOn);
-});
-
-test('/q in a DM does not repeat the hint after the first time', async () => {
-  const memory = createFakeMemory({ hintResults: [false] });
-  const { bot } = setup({ memory });
-
-  const interaction = createFakeInteraction({ guildId: null, userId: 'user-1' });
-  await bot.handleInteraction(interaction);
-
-  assert.equal(interaction.calls.some((call) => call.method === 'followUp'), false);
-});
-
-test('a failing hint lookup is logged and does not fail the answer', async () => {
-  const memory = createFakeMemory({ failures: { showDmHintOnce: 1 } });
-  const { bot, logger } = setup({ memory });
-
-  const interaction = createFakeInteraction({ guildId: null, userId: 'user-1' });
-  await bot.handleInteraction(interaction);
-
   assert.equal(interaction.calls.at(-1)?.method, 'editReply');
-  assert.match(logger.messages('warn')[0], /Could not show the DM memory hint: showDmHintOnce failed/);
-});
-
-test('a failing hint message is logged and does not fail the answer', async () => {
-  const memory = createFakeMemory({ hintResults: [true] });
-  const { bot, logger } = setup({ memory });
-
-  const interaction = createFakeInteraction({
-    guildId: null,
-    userId: 'user-1',
-    failures: { followUp: 1 },
-  });
-  await bot.handleInteraction(interaction);
-
-  assert.match(logger.messages('warn')[0], /Could not show the DM memory hint: followUp failed/);
-});
-
-test('/q in a DM answers without a hint when memory is in fallback mode', async () => {
-  const memory = createFakeMemory({ mode: 'memory', hintResults: [true] });
-  const { bot } = setup({ memory });
-
-  const interaction = createFakeInteraction({ guildId: null, userId: 'user-1' });
-  await bot.handleInteraction(interaction);
-
-  assert.equal(interaction.calls.at(-1)?.payload?.content, 'reply');
-  assert.equal(memory.calls.some((call) => call.method === 'showDmHintOnce'), false);
+  assert.equal(interaction.calls.at(-1)?.payload?.content, 'private answer');
 });
 
 test('non-Error failures are logged without crashing', async () => {
@@ -186,112 +140,12 @@ test('non-Error failures are logged without crashing', async () => {
   assert.match(message.calls.at(-1)?.payload?.content ?? '', /request failed/);
 });
 
-test('/memo is refused in a public channel', async () => {
-  const memory = createFakeMemory();
-  const { bot } = setup({ memory });
-
-  const interaction = createFakeInteraction({
-    commandName: 'memo',
-    guildId: 'guild-1',
-  });
-  await bot.handleInteraction(interaction);
-
-  assert.equal(interaction.calls.length, 1);
-  assert.equal(interaction.calls[0].method, 'reply');
-  assert.match(interaction.calls[0].payload?.content ?? '', /qu'en message privé/);
-  assert.equal(interaction.calls[0].payload?.flags, memoOn);
-  assert.equal(memory.calls.some((call) => call.method === 'setDmEnabled'), false);
-});
-
-test('/memo explains that private memory needs MongoDB in fallback mode', async () => {
-  const memory = createFakeMemory({ mode: 'memory' });
-  const { bot } = setup({ memory });
-
-  const interaction = createFakeInteraction({
-    commandName: 'memo',
-    guildId: null,
-    userId: 'user-1',
-  });
-  await bot.handleInteraction(interaction);
-
-  assert.match(interaction.calls[0].payload?.content ?? '', /nécessite MongoDB/);
-  assert.equal(memory.calls.some((call) => call.method === 'setDmEnabled'), false);
-});
-
-test('/memo on enables private memory in a DM', async () => {
-  const memory = createFakeMemory();
-  const { bot } = setup({ memory });
-
-  const interaction = createFakeInteraction({
-    commandName: 'memo',
-    guildId: null,
-    userId: 'user-1',
-    subcommand: 'on',
-  });
-  await bot.handleInteraction(interaction);
-
-  assert.deepEqual(
-    memory.calls.find((call) => call.method === 'setDmEnabled'),
-    { method: 'setDmEnabled', userId: 'user-1', enabled: true },
-  );
-  assert.match(interaction.calls[0].payload?.content ?? '', /Mémoire privée activée/);
-  assert.match(interaction.calls[0].payload?.content ?? '', /2 derniers échanges/);
-  assert.equal(interaction.calls[0].payload?.flags, memoOn);
-});
-
-test('/memo off disables private memory in a DM', async () => {
-  const memory = createFakeMemory();
-  const { bot } = setup({ memory });
-
-  const interaction = createFakeInteraction({
-    commandName: 'memo',
-    guildId: null,
-    userId: 'user-1',
-    subcommand: 'off',
-  });
-  await bot.handleInteraction(interaction);
-
-  assert.deepEqual(
-    memory.calls.find((call) => call.method === 'setDmEnabled'),
-    { method: 'setDmEnabled', userId: 'user-1', enabled: false },
-  );
-  assert.match(interaction.calls[0].payload?.content ?? '', /historique effacé/);
-});
-
-test('/memo reports a failed preference update and tolerates a failed reply', async () => {
-  const memory = createFakeMemory({ failures: { setDmEnabled: 1 } });
-  const { bot, logger } = setup({ memory });
-
-  const interaction = createFakeInteraction({
-    commandName: 'memo',
-    guildId: null,
-    userId: 'user-1',
-    failures: { reply: 1 },
-  });
-
-  await bot.handleInteraction(interaction);
-
-  assert.match(logger.messages('error')[0], /Could not update the DM memory preference/);
-  assert.equal(interaction.calls.length, 1);
-});
-
-test('a /memo handler failure is logged instead of crashing', async () => {
-  const { bot, logger } = setup();
-  const interaction = createFakeInteraction({
-    commandName: 'memo',
-    guildId: 'guild-1',
-    failures: { reply: 1 },
-  });
-
-  await bot.handleInteraction(interaction);
-
-  assert.match(logger.messages('error')[0], /Failed to handle \/memo: reply failed/);
-});
-
 test('non-command interactions and unknown commands are ignored', async () => {
   const { bot, memory } = setup();
 
   await bot.handleInteraction(createFakeInteraction({ chatInput: false }));
+  // Une commande /memo résiduelle sur Discord est ignorée silencieusement.
+  await bot.handleInteraction(createFakeInteraction({ commandName: 'memo' }));
   await bot.handleInteraction(createFakeInteraction({ commandName: 'other' }));
 
   assert.equal(memory.calls.length, 0);
@@ -323,8 +177,8 @@ test('a second /q in the same channel waits while the first is in flight', async
     },
   });
 
-  const first = createFakeInteraction({ prompt: 'first', channelId: 'channel-1' });
-  const second = createFakeInteraction({ prompt: 'second', channelId: 'channel-1' });
+  const first = createFakeInteraction({ prompt: 'first', guildId: 'guild-1', channelId: 'channel-1' });
+  const second = createFakeInteraction({ prompt: 'second', guildId: 'guild-1', channelId: 'channel-1' });
 
   const firstRun = bot.handleInteraction(first);
   await new Promise((resolve) => setImmediate(resolve));
@@ -344,7 +198,7 @@ test('/q reports a memory read failure with the memory-specific message', async 
   const memory = createFakeMemory({ failures: { getHistory: 1 } });
   const { bot, logger } = setup({ memory });
 
-  const interaction = createFakeInteraction({ channelId: 'channel-1' });
+  const interaction = createFakeInteraction({ guildId: 'guild-1', channelId: 'channel-1' });
   await bot.handleInteraction(interaction);
 
   assert.match(logger.messages('error')[0], /Failed to handle \/q/);
@@ -359,7 +213,7 @@ test('/q reports model failures after deferring', async () => {
     },
   });
 
-  const interaction = createFakeInteraction({ channelId: 'channel-1' });
+  const interaction = createFakeInteraction({ guildId: 'guild-1', channelId: 'channel-1' });
   await bot.handleInteraction(interaction);
 
   assert.equal(interaction.deferred, true);
@@ -385,6 +239,7 @@ test('/q tolerates a failure of the error reply itself', async () => {
   const { bot, logger } = setup({ memory });
 
   const interaction = createFakeInteraction({
+    guildId: 'guild-1',
     channelId: 'channel-1',
     failures: { editReply: 1 },
   });
@@ -397,7 +252,7 @@ test('/q tolerates a failure of the error reply itself', async () => {
 test('/q splits long model answers into an edit and follow-ups', async () => {
   const { bot } = setup({ ask: async () => LONG_REPLY });
 
-  const interaction = createFakeInteraction({ channelId: 'channel-1' });
+  const interaction = createFakeInteraction({ guildId: 'guild-1', channelId: 'channel-1' });
   await bot.handleInteraction(interaction);
 
   assert.deepEqual(interaction.calls.map((call) => call.method), [
@@ -422,7 +277,7 @@ test('a failing appendTurn is logged but the answer is still sent', async () => 
   const memory = createFakeMemory({ failures: { appendTurn: 1 } });
   const { bot, logger } = setup({ memory });
 
-  const interaction = createFakeInteraction({ channelId: 'channel-1' });
+  const interaction = createFakeInteraction({ guildId: 'guild-1', channelId: 'channel-1' });
   await bot.handleInteraction(interaction);
 
   assert.match(logger.messages('warn')[0], /Could not save the conversation turn/);
@@ -433,7 +288,7 @@ test('/q responds with a memory error when the interaction is already deferred',
   const memory = createFakeMemory({ failures: { getHistory: 1 } });
   const { bot } = setup({ memory });
 
-  const interaction = createFakeInteraction({ channelId: 'channel-1' });
+  const interaction = createFakeInteraction({ guildId: 'guild-1', channelId: 'channel-1' });
   await bot.handleInteraction(interaction);
 
   assert.equal(interaction.deferred, true);
@@ -462,7 +317,7 @@ test('guild messages without a mention are ignored', async () => {
 
 test('a mentioned guild message answers with shared channel memory', async () => {
   const memory = createFakeMemory({
-    histories: { 'channel:channel-1': [{ role: 'user', content: 'earlier' }] },
+    histories: { 'channel-1': [{ role: 'user', content: 'earlier' }] },
   });
   const asks: Array<{ history: Turn[]; prompt: string }> = [];
   const { bot } = setup({
@@ -490,17 +345,24 @@ test('a mentioned guild message answers with shared channel memory', async () =>
   assert.deepEqual(
     memory.calls
       .filter((call) => call.method === 'getHistory' || call.method === 'appendTurn')
-      .map(({ method, scope, key }) => ({ method, scope, key })),
+      .map(({ method, key }) => ({ method, key })),
     [
-      { method: 'getHistory', scope: 'channel', key: 'channel-1' },
-      { method: 'appendTurn', scope: 'channel', key: 'channel-1' },
+      { method: 'getHistory', key: 'channel-1' },
+      { method: 'appendTurn', key: 'channel-1' },
     ],
   );
 });
 
-test('a DM message answers privately and sends the opt-in hint in the DM', async () => {
-  const memory = createFakeMemory({ hintResults: [true] });
-  const { bot } = setup({ memory });
+test('a DM message answers without reading or storing any memory', async () => {
+  const memory = createFakeMemory();
+  const asks: Array<{ history: Turn[]; prompt: string }> = [];
+  const { bot } = setup({
+    memory,
+    ask: async (history, prompt) => {
+      asks.push({ history, prompt });
+      return 'private answer';
+    },
+  });
 
   const message = createFakeMessage({
     content: 'hello privately',
@@ -510,18 +372,10 @@ test('a DM message answers privately and sends the opt-in hint in the DM', async
   });
   await bot.handleMessage(message);
 
-  assert.deepEqual(
-    memory.calls
-      .filter((call) => ['getHistory', 'appendTurn', 'showDmHintOnce'].includes(call.method))
-      .map(({ method, scope, key, userId }) => ({ method, scope, key, userId })),
-    [
-      { method: 'getHistory', scope: 'dm', key: 'user-1', userId: undefined },
-      { method: 'appendTurn', scope: 'dm', key: 'user-1', userId: undefined },
-      { method: 'showDmHintOnce', scope: undefined, key: undefined, userId: 'user-1' },
-    ],
-  );
-  assert.equal(message.calls.at(-1)?.method, 'send');
-  assert.match(message.calls.at(-1)?.payload?.content ?? '', /memo on/);
+  assert.deepEqual(asks, [{ history: [], prompt: 'hello privately' }]);
+  assert.equal(memory.calls.length, 0);
+  assert.equal(message.calls.at(-1)?.method, 'reply');
+  assert.equal(message.calls.at(-1)?.payload?.content, 'private answer');
 });
 
 test('an empty mention asks for a question', async () => {

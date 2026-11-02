@@ -11,7 +11,7 @@ import type {
 import type { BotLogger } from '../../src/logging.ts';
 import type { ConversationMemory } from '../../src/memory.ts';
 import type { StartupClient } from '../../src/start.ts';
-import type { MemoryScope, Turn } from '../../src/types.ts';
+import type { Turn } from '../../src/types.ts';
 
 export const BOT_USER_ID = 'bot-user';
 
@@ -139,7 +139,6 @@ export interface FakeInteraction extends InteractionLike {
 export function createFakeInteraction({
   commandName = 'q',
   prompt = 'hello',
-  subcommand = 'on',
   guildId = null,
   channelId = 'channel-1',
   userId = 'user-1',
@@ -149,7 +148,6 @@ export function createFakeInteraction({
 }: {
   commandName?: string;
   prompt?: string;
-  subcommand?: string;
   guildId?: string | null;
   channelId?: string | null;
   userId?: string;
@@ -172,7 +170,6 @@ export function createFakeInteraction({
     isChatInputCommand: () => chatInput,
     options: {
       getString: () => prompt,
-      getSubcommand: () => subcommand,
     },
     async reply(payload) {
       calls.push({ method: 'reply', payload });
@@ -275,12 +272,10 @@ export interface FakeMemory extends ConversationMemory {
 export function createFakeMemory({
   mode = 'mongo',
   histories = {},
-  hintResults = [],
   failures = {},
 }: {
   mode?: 'mongo' | 'memory';
   histories?: Record<string, Turn[]>;
-  hintResults?: boolean[];
   failures?: Record<string, number>;
 } = {}): FakeMemory {
   const calls: FakeMemoryCall[] = [];
@@ -295,29 +290,15 @@ export function createFakeMemory({
   return {
     mode,
     calls,
-    async getHistory(scope: MemoryScope, key: string): Promise<Turn[]> {
-      calls.push({ method: 'getHistory', scope, key });
+    async getHistory(key: string): Promise<Turn[]> {
+      calls.push({ method: 'getHistory', key });
       fail('getHistory');
-      return histories[`${scope}:${key}`] ?? [];
+      return histories[key] ?? [];
     },
-    async appendTurn(scope, key, prompt, reply) {
-      calls.push({ method: 'appendTurn', scope, key, prompt, reply });
+    async appendTurn(key: string, prompt: string, reply: string): Promise<boolean> {
+      calls.push({ method: 'appendTurn', key, prompt, reply });
       fail('appendTurn');
       return true;
-    },
-    async isDmEnabled(userId) {
-      calls.push({ method: 'isDmEnabled', userId });
-      fail('isDmEnabled');
-      return false;
-    },
-    async setDmEnabled(userId, enabled) {
-      calls.push({ method: 'setDmEnabled', userId, enabled });
-      fail('setDmEnabled');
-    },
-    async showDmHintOnce(userId) {
-      calls.push({ method: 'showDmHintOnce', userId });
-      fail('showDmHintOnce');
-      return hintResults.shift() ?? false;
     },
     async close() {
       calls.push({ method: 'close' });

@@ -5,7 +5,6 @@ import {
   Client,
   Events,
   GatewayIntentBits,
-  MessageFlags,
   Partials,
 } from 'discord.js';
 import { createBot, registerCommands } from '../../src/bot.ts';
@@ -35,10 +34,6 @@ const settings: DeepSeekSettings & {
   discordGuildId: 'guild-1',
 };
 
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 function makeClient(discord: FakeDiscord): Client {
   const client = new Client({
     intents: [
@@ -54,7 +49,7 @@ function makeClient(discord: FakeDiscord): Client {
 }
 
 test(
-  'real discord.js client + MongoDB memory + DeepSeek SDK: guild shares memory, DMs stay private until opt-in',
+  'real discord.js client + MongoDB memory + DeepSeek SDK: channels share memory, DMs store nothing',
   { timeout: 30_000 },
   async () => {
     const discord = await startFakeDiscord();
@@ -92,22 +87,15 @@ test(
         try {
           await registerCommands(client, settings, logger);
 
-          const globalCommands = await discord.waitForRequest(
-            (request) => request.kind === 'globalCommands',
-          );
           const guildCommands = await discord.waitForRequest(
             (request) => request.kind === 'guildCommands',
-          );
-          assert.deepEqual(
-            globalCommands.body.map((command: Record<string, any>) => command.name),
-            ['memo'],
           );
           assert.deepEqual(
             guildCommands.body.map((command: Record<string, any>) => command.name),
             ['q'],
           );
 
-          // ---- Public channel: shared memory, no per-user choice ----------
+          // ---- Public channel: shared memory ------------------------------
           discord.dispatchMessage(
             discord.messageData({
               id: 'message-1',
@@ -157,7 +145,7 @@ test(
             ],
           );
 
-          // ---- DM without opt-in: no memory, one hint ----------------------
+          // ---- DM: answered, but nothing is ever stored -------------------
           discord.dispatchMessage(
             discord.messageData({
               id: 'dm-message-1',
@@ -174,12 +162,6 @@ test(
               request.channelId === 'dm-1' &&
               request.body.content === 'echo: private hello',
           );
-          await discord.waitForRequest(
-            (request) =>
-              request.kind === 'message' &&
-              request.channelId === 'dm-1' &&
-              /Astuce/.test(request.body.content),
-          );
 
           assert.deepEqual(deepseek.calls.at(-1)!.messages, [
             { role: 'user', content: 'private hello' },
@@ -188,11 +170,8 @@ test(
             await collection(db, 'dm_memories').countDocuments({ _id: 'user-1' }),
             0,
           );
-          const dmPreference = await collection(db, 'dm_preferences').findOne({ _id: 'user-1' });
-          assert.ok(dmPreference);
-          assert.equal(dmPreference.hinted, true);
 
-          // Second DM still has no memory, and the hint is not repeated.
+          // A second DM also has no memory of the first.
           discord.dispatchMessage(
             discord.messageData({
               id: 'dm-message-2',
@@ -213,78 +192,7 @@ test(
             { role: 'user', content: 'second private' },
           ]);
 
-          await delay(100);
-          assert.equal(
-            discord.requests.filter(
-              (request) =>
-                request.kind === 'message' &&
-                request.channelId === 'dm-1' &&
-                /Astuce/.test(request.body.content),
-            ).length,
-            1,
-          );
-
-          // ---- /memo on: opt in, then private memory persists -------------
-          discord.dispatchCommand({
-            interactionId: 'interaction-memo-on',
-            commandName: 'memo',
-            subcommand: 'on',
-            dm: true,
-          });
-          const memoOnReply = await discord.waitForRequest(
-            (request) =>
-              request.kind === 'interactionCallback' &&
-              request.interactionId === 'interaction-memo-on',
-          );
-          assert.match(memoOnReply.body.data.content, /Mémoire privée activée/);
-          assert.equal(memoOnReply.body.data.flags, MessageFlags.Ephemeral);
-
-          const preference = await collection(db, 'dm_preferences').findOne({
-            _id: 'user-1',
-          });
-          assert.ok(preference);
-          assert.equal(preference.enabled, true);
-
-          discord.dispatchMessage(
-            discord.messageData({
-              id: 'dm-message-3',
-              content: 'after opt-in',
-              channelId: 'dm-1',
-              guildIdForMessage: null,
-              channelType: 1,
-              mentionBot: false,
-            }),
-          );
-          await discord.waitForRequest(
-            (request) =>
-              request.kind === 'message' &&
-              request.channelId === 'dm-1' &&
-              request.body.content === 'echo: after opt-in',
-          );
-
-          discord.dispatchMessage(
-            discord.messageData({
-              id: 'dm-message-4',
-              content: 'remember this',
-              channelId: 'dm-1',
-              guildIdForMessage: null,
-              channelType: 1,
-              mentionBot: false,
-            }),
-          );
-          await discord.waitForRequest(
-            (request) =>
-              request.kind === 'message' &&
-              request.channelId === 'dm-1' &&
-              request.body.content === 'echo: remember this',
-          );
-
-          assert.deepEqual(deepseek.calls.at(-1)!.messages, [
-            { role: 'user', content: 'after opt-in' },
-            { role: 'assistant', content: 'echo: after opt-in' },
-            { role: 'user', content: 'remember this' },
-          ]);
-
+          // The channel history survived all the DM traffic.
           const freshMemory = await MemoryStore.connect({
             uri: TEST_MONGODB_URI,
             dbName,
@@ -293,13 +201,7 @@ test(
             ttlDays: null,
           });
           try {
-            assert.deepEqual(await freshMemory.getHistory('dm', 'user-1'), [
-              { role: 'user', content: 'after opt-in' },
-              { role: 'assistant', content: 'echo: after opt-in' },
-              { role: 'user', content: 'remember this' },
-              { role: 'assistant', content: 'echo: remember this' },
-            ]);
-            assert.deepEqual(await freshMemory.getHistory('channel', discord.guildChannelId), [
+            assert.deepEqual(await freshMemory.getHistory(discord.guildChannelId), [
               { role: 'user', content: 'first question' },
               { role: 'assistant', content: 'echo: first question' },
               { role: 'user', content: 'second question' },
@@ -309,45 +211,7 @@ test(
             await freshMemory.close();
           }
 
-          // ---- /memo off: erases private memory ---------------------------
-          discord.dispatchCommand({
-            interactionId: 'interaction-memo-off',
-            commandName: 'memo',
-            subcommand: 'off',
-            dm: true,
-          });
-          const memoOffReply = await discord.waitForRequest(
-            (request) =>
-              request.kind === 'interactionCallback' &&
-              request.interactionId === 'interaction-memo-off',
-          );
-          assert.match(memoOffReply.body.data.content, /historique effacé/);
-          assert.equal(
-            await collection(db, 'dm_memories').countDocuments({ _id: 'user-1' }),
-            0,
-          );
-
-          discord.dispatchMessage(
-            discord.messageData({
-              id: 'dm-message-5',
-              content: 'forgotten',
-              channelId: 'dm-1',
-              guildIdForMessage: null,
-              channelType: 1,
-              mentionBot: false,
-            }),
-          );
-          await discord.waitForRequest(
-            (request) =>
-              request.kind === 'message' &&
-              request.channelId === 'dm-1' &&
-              request.body.content === 'echo: forgotten',
-          );
-          assert.deepEqual(deepseek.calls.at(-1)!.messages, [
-            { role: 'user', content: 'forgotten' },
-          ]);
-
-          // ---- Guild slash command and the /memo refusal ------------------
+          // ---- Guild slash command ----------------------------------------
           discord.dispatchCommand({
             interactionId: 'interaction-q',
             commandName: 'q',
@@ -366,19 +230,6 @@ test(
               request.body.content === 'echo: slash question',
           );
           assert.deepEqual(slashAnswer.body.allowed_mentions, { parse: [] });
-
-          discord.dispatchCommand({
-            interactionId: 'interaction-memo-guild',
-            commandName: 'memo',
-            subcommand: 'on',
-          });
-          const refusal = await discord.waitForRequest(
-            (request) =>
-              request.kind === 'interactionCallback' &&
-              request.interactionId === 'interaction-memo-guild',
-          );
-          assert.match(refusal.body.data.content, /message privé/);
-          assert.equal(refusal.body.data.flags, MessageFlags.Ephemeral);
 
           // Channel memory was never touched by the DM flows.
           assert.equal(
