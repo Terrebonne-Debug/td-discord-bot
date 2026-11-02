@@ -93,7 +93,7 @@ test('/q in a guild uses shared channel memory and replies through the interacti
   ]);
   assert.equal(interaction.calls[1].payload?.content, 'the answer');
   assert.deepEqual(interaction.calls[1].payload?.allowedMentions, { parse: [] });
-  assert.deepEqual(logger.entries.error, []);
+  assert.deepEqual(logger.messages('error'), []);
 });
 
 test('/q in a DM uses private memory and shows the opt-in hint once', async () => {
@@ -144,7 +144,7 @@ test('a failing hint lookup is logged and does not fail the answer', async () =>
   await bot.handleInteraction(interaction);
 
   assert.equal(interaction.calls.at(-1)?.method, 'editReply');
-  assert.match(logger.entries.error[0], /Could not show the DM memory hint: showDmHintOnce failed/);
+  assert.match(logger.messages('warn')[0], /Could not show the DM memory hint: showDmHintOnce failed/);
 });
 
 test('a failing hint message is logged and does not fail the answer', async () => {
@@ -158,7 +158,7 @@ test('a failing hint message is logged and does not fail the answer', async () =
   });
   await bot.handleInteraction(interaction);
 
-  assert.match(logger.entries.error[0], /Could not show the DM memory hint: followUp failed/);
+  assert.match(logger.messages('warn')[0], /Could not show the DM memory hint: followUp failed/);
 });
 
 test('/q in a DM answers without a hint when memory is in fallback mode', async () => {
@@ -182,7 +182,7 @@ test('non-Error failures are logged without crashing', async () => {
 
   await assert.doesNotReject(bot.handleMessage(message));
 
-  assert.match(logger.entries.error[0], /Failed to handle message: model exploded/);
+  assert.match(logger.messages('error')[0], /Failed to handle message: model exploded/);
   assert.match(message.calls.at(-1)?.payload?.content ?? '', /request failed/);
 });
 
@@ -271,7 +271,7 @@ test('/memo reports a failed preference update and tolerates a failed reply', as
 
   await bot.handleInteraction(interaction);
 
-  assert.match(logger.entries.error[0], /Could not update the DM memory preference/);
+  assert.match(logger.messages('error')[0], /Could not update the DM memory preference/);
   assert.equal(interaction.calls.length, 1);
 });
 
@@ -285,7 +285,7 @@ test('a /memo handler failure is logged instead of crashing', async () => {
 
   await bot.handleInteraction(interaction);
 
-  assert.match(logger.entries.error[0], /Failed to handle \/memo: reply failed/);
+  assert.match(logger.messages('error')[0], /Failed to handle \/memo: reply failed/);
 });
 
 test('non-command interactions and unknown commands are ignored', async () => {
@@ -347,7 +347,7 @@ test('/q reports a memory read failure with the memory-specific message', async 
   const interaction = createFakeInteraction({ channelId: 'channel-1' });
   await bot.handleInteraction(interaction);
 
-  assert.match(logger.entries.error[0], /Failed to handle \/q/);
+  assert.match(logger.messages('error')[0], /Failed to handle \/q/);
   assert.match(interaction.calls.at(-1)?.payload?.content ?? '', /memory is temporarily unavailable/);
   assert.equal(interaction.calls.at(-1)?.payload?.flags, undefined);
 });
@@ -391,7 +391,7 @@ test('/q tolerates a failure of the error reply itself', async () => {
 
   await assert.doesNotReject(bot.handleInteraction(interaction));
   assert.equal(interaction.calls.filter((call) => call.method === 'editReply').length, 1);
-  assert.match(logger.entries.error[0], /Failed to handle \/q/);
+  assert.match(logger.messages('error')[0], /Failed to handle \/q/);
 });
 
 test('/q splits long model answers into an edit and follow-ups', async () => {
@@ -425,7 +425,7 @@ test('a failing appendTurn is logged but the answer is still sent', async () => 
   const interaction = createFakeInteraction({ channelId: 'channel-1' });
   await bot.handleInteraction(interaction);
 
-  assert.match(logger.entries.error[0], /Could not save the conversation turn/);
+  assert.match(logger.messages('warn')[0], /Could not save the conversation turn/);
   assert.equal(interaction.calls.at(-1)?.payload?.content, 'reply');
 });
 
@@ -616,7 +616,7 @@ test('a failing message reply is logged and swallowed', async () => {
 
   await assert.doesNotReject(bot.handleMessage(message));
 
-  assert.match(logger.entries.error[0], /Failed to handle message: model down/);
+  assert.match(logger.messages('error')[0], /Failed to handle message: model down/);
 });
 
 test('a failing typing indicator does not prevent the answer', async () => {
@@ -668,5 +668,5 @@ test('Discord client errors are logged', () => {
 
   client.emit(Events.Error, new Error('ws closed'));
 
-  assert.match(logger.entries.error[0], /Discord client error: ws closed/);
+  assert.match(logger.messages('error')[0], /Discord client error: ws closed/);
 });

@@ -385,7 +385,7 @@ test(
             await collection(db, 'channel_memories').countDocuments({ _id: 'user-1' }),
             0,
           );
-          assert.deepEqual(logger.entries.error, []);
+          assert.deepEqual(logger.messages('error'), []);
         } finally {
           client.destroy();
           await memory.close();

@@ -3,6 +3,7 @@ import test from 'node:test';
 import { MemoryStore } from '../../src/memory.ts';
 import type { MemoryUnavailableError } from '../../src/memory.ts';
 import type { MemoryScope } from '../../src/types.ts';
+import { createLogger } from '../helpers/fakes.ts';
 import { collection, TEST_MONGODB_URI, withMongo } from '../helpers/mongo.ts';
 
 async function connect({
@@ -44,6 +45,21 @@ test('connect falls back to in-RAM memory when MongoDB is unreachable', async (t
 
   assert.equal(store.mode, 'memory');
   assert.match(warn.mock.calls[0].arguments[0], /MongoDB is unavailable/);
+  await store.close();
+});
+
+test('connect reports the RAM fallback to the injected logger', async () => {
+  const logger = createLogger();
+  const store = await MemoryStore.connect({
+    uri: null,
+    dbName: 'unused',
+    timeoutMs: 1_000,
+    maxHistoryTurns: 2,
+    logger,
+  });
+
+  assert.equal(store.mode, 'memory');
+  assert.match(logger.messages('warn')[0], /MONGODB_URI is not set/);
   await store.close();
 });
 

@@ -30,6 +30,11 @@ test('parseConfig applies every default', () => {
   assert.equal(config.mongodbDb, 'td-discord-bot');
   assert.equal(config.mongodbTimeoutMs, 5000);
   assert.equal(config.memoryTtlDays, null);
+  assert.equal(config.logLevel, 'info');
+  assert.equal(config.logDir, './logs');
+  assert.equal(config.logFileEnabled, true);
+  assert.equal(config.logMaxSizeMb, 10);
+  assert.equal(config.logRetentionDays, 14);
   assert.ok(Object.isFrozen(config));
 });
 
@@ -52,6 +57,11 @@ test('parseConfig trims values, lowercases enums and parses every override', () 
     MONGODB_DB: 'custom-db',
     MONGODB_TIMEOUT_MS: '1234',
     MEMORY_TTL_DAYS: '7',
+    LOG_LEVEL: 'DEBUG',
+    LOG_DIR: '/var/log/td-bot',
+    LOG_FILE_ENABLED: 'false',
+    LOG_MAX_SIZE_MB: '5',
+    LOG_RETENTION_DAYS: '30',
   });
 
   assert.equal(config.discordToken, 'discord-token');
@@ -70,6 +80,11 @@ test('parseConfig trims values, lowercases enums and parses every override', () 
   assert.equal(config.mongodbDb, 'custom-db');
   assert.equal(config.mongodbTimeoutMs, 1234);
   assert.equal(config.memoryTtlDays, 7);
+  assert.equal(config.logLevel, 'debug');
+  assert.equal(config.logDir, '/var/log/td-bot');
+  assert.equal(config.logFileEnabled, false);
+  assert.equal(config.logMaxSizeMb, 5);
+  assert.equal(config.logRetentionDays, 30);
 });
 
 test('parseConfig rejects missing and placeholder required variables', () => {
@@ -117,6 +132,25 @@ test('parseConfig rejects invalid positive integers and numbers', () => {
   assert.throws(
     () => parseConfig(baseEnv({ MONGODB_TIMEOUT_MS: '0' })),
     /MONGODB_TIMEOUT_MS must be a positive integer/,
+  );
+});
+
+test('parseConfig validates the logging settings', () => {
+  assert.throws(
+    () => parseConfig(baseEnv({ LOG_LEVEL: 'verbose' })),
+    /LOG_LEVEL must be one of/,
+  );
+  assert.throws(
+    () => parseConfig(baseEnv({ LOG_FILE_ENABLED: 'oui' })),
+    /LOG_FILE_ENABLED must be "true" or "false"/,
+  );
+  assert.throws(
+    () => parseConfig(baseEnv({ LOG_MAX_SIZE_MB: '0' })),
+    /LOG_MAX_SIZE_MB must be a positive integer/,
+  );
+  assert.throws(
+    () => parseConfig(baseEnv({ LOG_RETENTION_DAYS: '-1' })),
+    /LOG_RETENTION_DAYS must be a positive integer/,
   );
 });
 

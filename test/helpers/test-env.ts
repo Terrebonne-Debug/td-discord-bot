@@ -20,6 +20,8 @@ const DEFAULTS: Record<string, string> = {
   MONGODB_DB: 'td-discord-bot',
   MONGODB_TIMEOUT_MS: '5000',
   MEMORY_TTL_DAYS: '',
+  // Les tests ne doivent jamais écrire de fichiers de logs.
+  LOG_FILE_ENABLED: 'false',
 };
 
 for (const [name, value] of Object.entries(DEFAULTS)) {
