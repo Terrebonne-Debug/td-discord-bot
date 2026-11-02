@@ -1,9 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { MemoryStore } from '../../src/memory.js';
-import { TEST_MONGODB_URI, withMongo } from '../helpers/mongo.js';
+import { MemoryStore } from '../../src/memory.ts';
+import type { MemoryUnavailableError } from '../../src/memory.ts';
+import type { MemoryScope } from '../../src/types.ts';
+import { collection, TEST_MONGODB_URI, withMongo } from '../helpers/mongo.ts';
 
-async function connect({ dbName = 'unused', ttlDays = null, maxHistoryTurns = 2 } = {}) {
+async function connect({
+  dbName = 'unused',
+  ttlDays = null,
+  maxHistoryTurns = 2,
+}: { dbName?: string; ttlDays?: number | null; maxHistoryTurns?: number } = {}) {
   return MemoryStore.connect({
     uri: TEST_MONGODB_URI,
     dbName,
@@ -67,7 +73,7 @@ test('in-RAM fallback keeps channel history only and never private memory', asyn
   assert.equal(await store.showDmHintOnce('user'), false);
   await assert.rejects(
     store.setDmEnabled('user', true),
-    (error) =>
+    (error: MemoryUnavailableError) =>
       error.name === 'MemoryUnavailableError' &&
       error.memoryUnavailable === true &&
       error.cause instanceof Error,
@@ -84,7 +90,7 @@ test('an unknown memory scope is rejected', async () => {
     maxHistoryTurns: 2,
   });
 
-  await assert.rejects(store.getHistory('guild', 'x'), /Unknown memory scope: guild/);
+  await assert.rejects(store.getHistory('guild' as MemoryScope, 'x'), /Unknown memory scope: guild/);
   await store.close();
 });
 
@@ -109,11 +115,11 @@ test('MongoDB channel memory trims turns and is isolated from DM memory', async 
       assert.deepEqual(await store.getHistory('dm', 'same-id'), []);
       assert.equal(await store.appendTurn('dm', 'same-id', 'd1', 'dr1'), false);
       assert.equal(
-        await db.collection('dm_memories').countDocuments({ _id: 'same-id' }),
+        await collection(db, 'dm_memories').countDocuments({ _id: 'same-id' }),
         0,
       );
       assert.equal(
-        await db.collection('channel_memories').countDocuments({ _id: 'same-id' }),
+        await collection(db, 'channel_memories').countDocuments({ _id: 'same-id' }),
         1,
       );
 
@@ -133,7 +139,8 @@ test('MongoDB channel memory trims turns and is isolated from DM memory', async 
         { role: 'assistant', content: 'cr3' },
       ]);
 
-      const dmDoc = await db.collection('dm_memories').findOne({ _id: 'same-id' });
+      const dmDoc = await collection(db, 'dm_memories').findOne({ _id: 'same-id' });
+      assert.ok(dmDoc);
       assert.deepEqual(dmDoc.turns, [
         { role: 'user', content: 'd1' },
         { role: 'assistant', content: 'dr1' },
@@ -144,11 +151,11 @@ test('MongoDB channel memory trims turns and is isolated from DM memory', async 
       assert.equal(await store.isDmEnabled('same-id'), false);
       assert.deepEqual(await store.getHistory('dm', 'same-id'), []);
       assert.equal(
-        await db.collection('dm_memories').countDocuments({ _id: 'same-id' }),
+        await collection(db, 'dm_memories').countDocuments({ _id: 'same-id' }),
         0,
       );
       assert.equal(
-        await db.collection('channel_memories').countDocuments({ _id: 'same-id' }),
+        await collection(db, 'channel_memories').countDocuments({ _id: 'same-id' }),
         1,
       );
     } finally {
@@ -165,7 +172,8 @@ test('showDmHintOnce creates the preference document only once', async () => {
       assert.equal(await store.showDmHintOnce('user-1'), true);
       assert.equal(await store.showDmHintOnce('user-1'), false);
 
-      const preference = await db.collection('dm_preferences').findOne({ _id: 'user-1' });
+      const preference = await collection(db, 'dm_preferences').findOne({ _id: 'user-1' });
+      assert.ok(preference);
       assert.equal(preference.enabled, false);
       assert.equal(preference.hinted, true);
     } finally {
@@ -189,7 +197,7 @@ test('close ignores a failing MongoDB client close', async () => {
 
 test('stored turns are normalised before being sent to the model', async () => {
   await withMongo(async ({ db, dbName }) => {
-    await db.collection('channel_memories').insertOne({
+    await collection(db, 'channel_memories').insertOne({
       _id: 'chan',
       turns: [
         { role: 'user', content: 'ok' },
@@ -200,7 +208,7 @@ test('stored turns are normalised before being sent to the model', async () => {
       ],
       updatedAt: new Date(),
     });
-    await db.collection('channel_memories').insertOne({
+    await collection(db, 'channel_memories').insertOne({
       _id: 'broken',
       turns: 'not-an-array',
       updatedAt: new Date(),
@@ -228,10 +236,11 @@ test('MEMORY_TTL_DAYS creates TTL indexes on both memory collections', async () 
       assert.equal(store.mode, 'mongo');
 
       for (const name of ['channel_memories', 'dm_memories']) {
-        const indexes = await db.collection(name).indexes();
+        const indexes = await collection(db, name).indexes();
         const ttl = indexes.find(
           (index) => index.key.updatedAt === 1 && index.expireAfterSeconds !== undefined,
         );
+        assert.ok(ttl);
         assert.equal(ttl.expireAfterSeconds, 2 * 86_400);
       }
     } finally {
@@ -244,7 +253,7 @@ test('a conflicting TTL index is reported without disabling MongoDB memory', asy
   const warn = t.mock.method(console, 'warn');
 
   await withMongo(async ({ db, dbName }) => {
-    await db.collection('channel_memories').createIndex({ updatedAt: 1 });
+    await collection(db, 'channel_memories').createIndex({ updatedAt: 1 });
 
     const store = await connect({ dbName, ttlDays: 2 });
 
@@ -258,7 +267,7 @@ test('a conflicting TTL index is reported without disabling MongoDB memory', asy
         ),
       );
 
-      const dmIndexes = await db.collection('dm_memories').indexes();
+      const dmIndexes = await collection(db, 'dm_memories').indexes();
       assert.ok(dmIndexes.some((index) => index.expireAfterSeconds === 2 * 86_400));
     } finally {
       await store.close();

@@ -6,10 +6,10 @@ import {
   startTyping,
   stripBotMention,
   registerCommands,
-} from '../../src/bot.js';
-import { createFakeClient, createLogger } from '../helpers/fakes.js';
+} from '../../src/bot.ts';
+import { createFakeClient, createLogger } from '../helpers/fakes.ts';
 
-function delay(ms) {
+function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 

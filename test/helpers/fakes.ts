@@ -1,10 +1,27 @@
 import { EventEmitter } from 'node:events';
 import { ChannelType, Events } from 'discord.js';
+import type {
+  BotClient,
+  InteractionLike,
+  MessageChannelLike,
+  MessageLike,
+  ReplyPayload,
+  TypingChannel,
+} from '../../src/bot.ts';
+import type { ConversationMemory } from '../../src/memory.ts';
+import type { StartupClient } from '../../src/start.ts';
+import type { MemoryScope, Turn } from '../../src/types.ts';
 
 export const BOT_USER_ID = 'bot-user';
 
-export function createLogger() {
-  const entries = { log: [], error: [] };
+export interface Logger {
+  entries: { log: string[]; error: string[] };
+  log(message: string): void;
+  error(message: string): void;
+}
+
+export function createLogger(): Logger {
+  const entries = { log: [] as string[], error: [] as string[] };
   return {
     entries,
     log: (message) => entries.log.push(message),
@@ -12,41 +29,70 @@ export function createLogger() {
   };
 }
 
-export function createFakeClient({ userId = BOT_USER_ID, tag = 'TestBot#0001' } = {}) {
-  const client = new EventEmitter();
-  client.user = { id: userId, tag };
-  client.destroyed = false;
-  client.destroy = () => {
-    client.destroyed = true;
-  };
-  client.login = async () => {
-    client.emit(Events.ClientReady, client);
-  };
-  client.application = {
-    commands: {
-      set: async (commands) => {
-        client.globalCommands = commands;
-      },
-    },
-  };
-  client.guilds = {
-    fetch: async (id) => {
-      client.fetchedGuildId = id;
-      return {
-        name: 'Guild Name',
-        commands: {
-          set: async (commands) => {
-            client.guildCommands = commands;
-          },
-        },
-      };
-    },
-  };
-  return client;
+export interface FakeGuild {
+  name: string;
+  commands: { set(commands: readonly unknown[]): Promise<void> };
 }
 
-function makeFailureCounter(failures) {
-  const remaining = {
+export interface FakeClient extends BotClient, StartupClient {
+  user: { id: string; tag: string };
+  destroyed: boolean;
+  emit(event: string, ...args: any[]): boolean;
+  application: { commands: { set(commands: readonly unknown[]): Promise<void> } };
+  guilds: { fetch(id: string): Promise<FakeGuild> };
+  globalCommands: Array<Record<string, any>>;
+  guildCommands: Array<Record<string, any>>;
+  fetchedGuildId: string | undefined;
+}
+
+export function createFakeClient({
+  userId = BOT_USER_ID,
+  tag = 'TestBot#0001',
+}: { userId?: string; tag?: string } = {}): FakeClient {
+  const client = new EventEmitter();
+  const fake = Object.assign(client, {
+    user: { id: userId, tag },
+    destroyed: false,
+    globalCommands: [] as Array<Record<string, any>>,
+    guildCommands: [] as Array<Record<string, any>>,
+    fetchedGuildId: undefined as string | undefined,
+    destroy: () => {
+      fake.destroyed = true;
+    },
+    login: async () => {
+      fake.emit(Events.ClientReady, fake);
+    },
+    application: {
+      commands: {
+        set: async (commands: readonly unknown[]) => {
+          fake.globalCommands = commands as Array<Record<string, any>>;
+        },
+      },
+    },
+    guilds: {
+      fetch: async (id: string): Promise<FakeGuild> => {
+        fake.fetchedGuildId = id;
+        return {
+          name: 'Guild Name',
+          commands: {
+            set: async (commands: readonly unknown[]) => {
+              fake.guildCommands = commands as Array<Record<string, any>>;
+            },
+          },
+        };
+      },
+    },
+  }) as EventEmitter & FakeClient;
+  return fake;
+}
+
+export interface FakeCall {
+  method: string;
+  payload?: ReplyPayload;
+}
+
+function makeFailureCounter(failures: Record<string, number>) {
+  const remaining: Record<string, number> = {
     reply: 0,
     deferReply: 0,
     editReply: 0,
@@ -56,12 +102,16 @@ function makeFailureCounter(failures) {
     ...failures,
   };
 
-  return (method) => {
+  return (method: string) => {
     if (remaining[method] > 0) {
       remaining[method] -= 1;
       throw new Error(`${method} failed`);
     }
   };
+}
+
+export interface FakeInteraction extends InteractionLike {
+  calls: FakeCall[];
 }
 
 export function createFakeInteraction({
@@ -74,11 +124,21 @@ export function createFakeInteraction({
   channel = null,
   chatInput = true,
   failures = {},
-} = {}) {
-  const calls = [];
+}: {
+  commandName?: string;
+  prompt?: string;
+  subcommand?: string;
+  guildId?: string | null;
+  channelId?: string | null;
+  userId?: string;
+  channel?: TypingChannel | null;
+  chatInput?: boolean;
+  failures?: Record<string, number>;
+} = {}): FakeInteraction {
+  const calls: FakeCall[] = [];
   const fail = makeFailureCounter(failures);
 
-  const interaction = {
+  const interaction: FakeInteraction = {
     commandName,
     channelId,
     channel,
@@ -117,6 +177,10 @@ export function createFakeInteraction({
   return interaction;
 }
 
+export interface FakeMessage extends MessageLike {
+  calls: FakeCall[];
+}
+
 export function createFakeMessage({
   content = `<@${BOT_USER_ID}> hello`,
   author = { id: 'user-1', bot: false },
@@ -127,12 +191,21 @@ export function createFakeMessage({
   botUserId = BOT_USER_ID,
   withoutTyping = false,
   failures = {},
-} = {}) {
-  const calls = [];
+}: {
+  content?: string;
+  author?: { id: string; bot: boolean };
+  system?: boolean;
+  channelType?: ChannelType;
+  channelId?: string;
+  mentionsBot?: boolean;
+  botUserId?: string;
+  withoutTyping?: boolean;
+  failures?: Record<string, number>;
+} = {}): FakeMessage {
+  const calls: FakeCall[] = [];
   const fail = makeFailureCounter(failures);
 
-  const channel = {
-    id: channelId,
+  const channel: MessageChannelLike = {
     type: channelType,
     send: async (payload) => {
       calls.push({ method: 'send', payload });
@@ -148,7 +221,7 @@ export function createFakeMessage({
     };
   }
 
-  const message = {
+  const message: FakeMessage = {
     author,
     system,
     channel,
@@ -168,15 +241,29 @@ export function createFakeMessage({
   return message;
 }
 
+export interface FakeMemoryCall {
+  method: string;
+  [key: string]: unknown;
+}
+
+export interface FakeMemory extends ConversationMemory {
+  calls: FakeMemoryCall[];
+}
+
 export function createFakeMemory({
   mode = 'mongo',
   histories = {},
   hintResults = [],
   failures = {},
-} = {}) {
-  const calls = [];
+}: {
+  mode?: 'mongo' | 'memory';
+  histories?: Record<string, Turn[]>;
+  hintResults?: boolean[];
+  failures?: Record<string, number>;
+} = {}): FakeMemory {
+  const calls: FakeMemoryCall[] = [];
   const remaining = { ...failures };
-  const fail = (method) => {
+  const fail = (method: string) => {
     if (remaining[method] > 0) {
       remaining[method] -= 1;
       throw new Error(`${method} failed`);
@@ -186,7 +273,7 @@ export function createFakeMemory({
   return {
     mode,
     calls,
-    async getHistory(scope, key) {
+    async getHistory(scope: MemoryScope, key: string): Promise<Turn[]> {
       calls.push({ method: 'getHistory', scope, key });
       fail('getHistory');
       return histories[`${scope}:${key}`] ?? [];

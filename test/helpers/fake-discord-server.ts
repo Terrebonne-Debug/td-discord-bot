@@ -1,25 +1,30 @@
 import { EventEmitter, once } from 'node:events';
 import http from 'node:http';
+import type { IncomingMessage, ServerResponse } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { WebSocketServer } from 'ws';
+import type { WebSocket } from 'ws';
 
-async function readJson(req) {
-  const chunks = [];
+type Json = Record<string, any>;
+
+async function readJson(req: IncomingMessage): Promise<Json> {
+  const chunks: Buffer[] = [];
   for await (const chunk of req) chunks.push(chunk);
   const raw = Buffer.concat(chunks).toString('utf8');
   return raw ? JSON.parse(raw) : {};
 }
 
-function sendJson(res, status, body) {
+function sendJson(res: ServerResponse, status: number, body: unknown): void {
   res.writeHead(status, { 'content-type': 'application/json' });
   res.end(JSON.stringify(body));
 }
 
-function sendEmpty(res, status = 204) {
+function sendEmpty(res: ServerResponse, status = 204): void {
   res.writeHead(status);
   res.end();
 }
 
-function user(id, username, bot = false) {
+function user(id: string, username: string, bot = false): Json {
   return {
     id,
     username,
@@ -29,6 +34,36 @@ function user(id, username, bot = false) {
     bot,
     public_flags: 0,
   };
+}
+
+export interface FakeDiscord {
+  url: string;
+  guildId: string;
+  guildChannelId: string;
+  applicationId: string;
+  botUser: Json;
+  humanUser: Json;
+  requests: Json[];
+  waitForRequest(predicate: (item: Json) => boolean, timeoutMs?: number): Promise<Json>;
+  dispatch(type: string, data: unknown): void;
+  dispatchMessage(data: Json): void;
+  dispatchCommand(data: {
+    interactionId: string;
+    commandName: string;
+    options?: unknown[];
+    subcommand?: string | null;
+    dm?: boolean;
+  }): void;
+  messageData(options: {
+    id: string;
+    content: string;
+    authorId?: string;
+    channelId?: string;
+    guildIdForMessage?: string | null;
+    channelType?: number;
+    mentionBot?: boolean;
+  }): Json;
+  close(): Promise<void>;
 }
 
 /**
@@ -44,11 +79,17 @@ export async function startFakeDiscord({
   guildChannelId = 'guild-channel-1',
   botUserId = 'bot-user',
   humanUserId = 'user-1',
-} = {}) {
+}: {
+  applicationId?: string;
+  guildId?: string;
+  guildChannelId?: string;
+  botUserId?: string;
+  humanUserId?: string;
+} = {}): Promise<FakeDiscord> {
   const botUser = user(botUserId, 'TestBot', true);
   const humanUser = user(humanUserId, 'Alice');
 
-  const guildChannel = {
+  const guildChannel: Json = {
     id: guildChannelId,
     type: 0,
     guild_id: guildId,
@@ -61,7 +102,7 @@ export async function startFakeDiscord({
     rate_limit_per_user: 0,
   };
 
-  const guild = {
+  const guild: Json = {
     id: guildId,
     name: 'Test Guild',
     icon: null,
@@ -86,19 +127,22 @@ export async function startFakeDiscord({
     emojis: [],
   };
 
-  const person = (userId) => (userId === botUserId ? botUser : humanUser);
-  const requests = [];
+  const person = (userId: string): Json => (userId === botUserId ? botUser : humanUser);
+  const requests: Json[] = [];
   const events = new EventEmitter();
   let nextMessageId = 0;
 
-  function record(entry) {
+  function record(entry: Json): Json {
     const item = { ...entry, at: Date.now() };
     requests.push(item);
     events.emit('request', item);
     return item;
   }
 
-  function waitForRequest(predicate, timeoutMs = 5_000) {
+  function waitForRequest(
+    predicate: (item: Json) => boolean,
+    timeoutMs = 5_000,
+  ): Promise<Json> {
     const existing = requests.find(predicate);
     if (existing) return Promise.resolve(existing);
 
@@ -114,7 +158,7 @@ export async function startFakeDiscord({
         );
       }, timeoutMs);
 
-      const onRequest = (item) => {
+      const onRequest = (item: Json) => {
         if (!predicate(item)) return;
         cleanup();
         resolve(item);
@@ -129,7 +173,11 @@ export async function startFakeDiscord({
     });
   }
 
-  function outgoingMessage(channelId, body, guildIdForMessage = null) {
+  function outgoingMessage(
+    channelId: string,
+    body: Json,
+    guildIdForMessage: string | null = null,
+  ): Json {
     nextMessageId += 1;
     return {
       id: `sent-${nextMessageId}`,
@@ -152,7 +200,7 @@ export async function startFakeDiscord({
     };
   }
 
-  function channelById(channelId) {
+  function channelById(channelId: string): Json | null {
     if (channelId === guildChannelId) return guildChannel;
     if (channelId.startsWith('dm-')) {
       return { id: channelId, type: 1, recipients: [humanUser], last_message_id: null };
@@ -160,20 +208,20 @@ export async function startFakeDiscord({
     return null;
   }
 
-  function commandsResponse(commands, guildIdForCommand = null) {
+  function commandsResponse(commands: readonly unknown[], guildIdForCommand: string | null = null): Json[] {
     return commands.map((command, index) => ({
       id: `cmd-${guildIdForCommand ?? 'global'}-${index}`,
       application_id: applicationId,
       ...(guildIdForCommand ? { guild_id: guildIdForCommand } : {}),
-      ...command,
+      ...(command as Json),
       version: '1',
     }));
   }
 
-  const server = http.createServer(async (req, res) => {
-    const pathname = decodeURIComponent(new URL(req.url, 'http://127.0.0.1').pathname);
+  const server = http.createServer(async (req: IncomingMessage, res: ServerResponse) => {
+    const pathname = decodeURIComponent(new URL(req.url ?? '/', 'http://127.0.0.1').pathname);
     const method = req.method;
-    let body = {};
+    let body: Json = {};
 
     if (method === 'POST' || method === 'PUT' || method === 'PATCH') {
       body = await readJson(req);
@@ -297,19 +345,19 @@ export async function startFakeDiscord({
   });
 
   const wss = new WebSocketServer({ server });
-  let socket = null;
+  let socket: WebSocket | null = null;
   let sequence = 0;
 
-  function send(payload) {
+  function send(payload: unknown): void {
     if (socket?.readyState === 1) socket.send(JSON.stringify(payload));
   }
 
-  function dispatch(type, data) {
+  function dispatch(type: string, data: unknown): void {
     sequence += 1;
     send({ op: 0, s: sequence, t: type, d: data });
   }
 
-  wss.on('connection', (ws) => {
+  wss.on('connection', (ws: WebSocket) => {
     socket = ws;
 
     ws.on('message', (raw) => {
@@ -338,7 +386,7 @@ export async function startFakeDiscord({
 
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
-  const wsUrl = `ws://127.0.0.1:${server.address().port}`;
+  const wsUrl = `ws://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
   function messageData({
     id,
@@ -348,7 +396,15 @@ export async function startFakeDiscord({
     guildIdForMessage = guildId,
     channelType = 0,
     mentionBot = true,
-  }) {
+  }: {
+    id: string;
+    content: string;
+    authorId?: string;
+    channelId?: string;
+    guildIdForMessage?: string | null;
+    channelType?: number;
+    mentionBot?: boolean;
+  }): Json {
     return {
       id,
       channel_id: channelId,
@@ -371,7 +427,19 @@ export async function startFakeDiscord({
     };
   }
 
-  function commandData({ interactionId, commandName, options = [], subcommand = null, dm = false }) {
+  function commandData({
+    interactionId,
+    commandName,
+    options = [],
+    subcommand = null,
+    dm = false,
+  }: {
+    interactionId: string;
+    commandName: string;
+    options?: unknown[];
+    subcommand?: string | null;
+    dm?: boolean;
+  }): Json {
     return {
       id: interactionId,
       application_id: applicationId,
@@ -418,7 +486,7 @@ export async function startFakeDiscord({
   }
 
   return {
-    url: `http://127.0.0.1:${server.address().port}`,
+    url: `http://127.0.0.1:${(server.address() as AddressInfo).port}`,
     guildId,
     guildChannelId,
     applicationId,
@@ -437,7 +505,9 @@ export async function startFakeDiscord({
     close() {
       for (const client of wss.clients) client.terminate();
       server.closeAllConnections?.();
-      return new Promise((resolve) => wss.close(() => server.close(resolve)));
+      return new Promise<void>((resolve) =>
+        wss.close(() => server.close(() => resolve())),
+      );
     },
   };
 }

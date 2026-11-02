@@ -4,11 +4,15 @@ import {
   askDeepSeek,
   createDeepSeekClient,
   describeDeepSeekError,
-} from '../../src/deepseek.js';
+} from '../../src/deepseek.ts';
+import type { DeepSeekClient, DeepSeekSettings } from '../../src/deepseek.ts';
 
-function fakeClient(content) {
-  const calls = [];
+function fakeClient(
+  content: Array<{ type: string; text?: string; thinking?: string }>,
+): DeepSeekClient & { calls: Array<Record<string, unknown>> } {
+  const calls: Array<Record<string, unknown>> = [];
   return {
+    baseURL: 'https://api.deepseek.com/anthropic',
     calls,
     messages: {
       create: async (params) => {
@@ -19,7 +23,7 @@ function fakeClient(content) {
   };
 }
 
-const enabledSettings = {
+const enabledSettings: DeepSeekSettings = {
   deepseekModel: 'deepseek-v4-flash',
   deepseekMaxTokens: 123,
   deepseekEffort: 'max',
@@ -28,7 +32,7 @@ const enabledSettings = {
   systemPrompt: 'System prompt',
 };
 
-const disabledSettings = {
+const disabledSettings: DeepSeekSettings = {
   ...enabledSettings,
   deepseekThinking: 'disabled',
   deepseekTemperature: 0.5,

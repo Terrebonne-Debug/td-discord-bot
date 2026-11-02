@@ -8,15 +8,22 @@ import {
   MessageFlags,
   Partials,
 } from 'discord.js';
-import { createBot, registerCommands } from '../../src/bot.js';
-import { askDeepSeek, createDeepSeekClient } from '../../src/deepseek.js';
-import { MemoryStore } from '../../src/memory.js';
-import { startFakeDeepSeek } from '../helpers/fake-deepseek-server.js';
-import { startFakeDiscord } from '../helpers/fake-discord-server.js';
-import { createLogger } from '../helpers/fakes.js';
-import { TEST_MONGODB_URI, withMongo } from '../helpers/mongo.js';
+import { createBot, registerCommands } from '../../src/bot.ts';
+import { askDeepSeek, createDeepSeekClient } from '../../src/deepseek.ts';
+import type { DeepSeekSettings } from '../../src/deepseek.ts';
+import { MemoryStore } from '../../src/memory.ts';
+import type { Turn } from '../../src/types.ts';
+import { startFakeDeepSeek } from '../helpers/fake-deepseek-server.ts';
+import { startFakeDiscord } from '../helpers/fake-discord-server.ts';
+import type { FakeDiscord } from '../helpers/fake-discord-server.ts';
+import { createLogger } from '../helpers/fakes.ts';
+import { collection, TEST_MONGODB_URI, withMongo } from '../helpers/mongo.ts';
 
-const settings = {
+const settings: DeepSeekSettings & {
+  maxHistoryTurns: number;
+  maxPromptChars: number;
+  discordGuildId: string;
+} = {
   deepseekModel: 'deepseek-v4-flash',
   deepseekMaxTokens: 512,
   deepseekThinking: 'disabled',
@@ -28,11 +35,11 @@ const settings = {
   discordGuildId: 'guild-1',
 };
 
-function delay(ms) {
+function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function makeClient(discord) {
+function makeClient(discord: FakeDiscord): Client {
   const client = new Client({
     intents: [
       GatewayIntentBits.Guilds,
@@ -73,7 +80,7 @@ test(
           deepseekBaseUrl: deepseek.url,
           deepseekTimeoutMs: 5_000,
         });
-        const ask = (history, prompt) =>
+        const ask = (history: Turn[], prompt: string) =>
           askDeepSeek(history, prompt, anthropic, settings);
 
         createBot({ client, memory, settings, ask, logger });
@@ -92,11 +99,11 @@ test(
             (request) => request.kind === 'guildCommands',
           );
           assert.deepEqual(
-            globalCommands.body.map((command) => command.name),
+            globalCommands.body.map((command: Record<string, any>) => command.name),
             ['memo'],
           );
           assert.deepEqual(
-            guildCommands.body.map((command) => command.name),
+            guildCommands.body.map((command: Record<string, any>) => command.name),
             ['q'],
           );
 
@@ -134,11 +141,14 @@ test(
           ]);
 
           // The channel history is really in MongoDB, not just in a Map.
-          const channelDoc = await db
-            .collection('channel_memories')
-            .findOne({ _id: discord.guildChannelId });
+          const channelDoc = await collection(db, 'channel_memories').findOne({
+            _id: discord.guildChannelId,
+          });
+          assert.ok(channelDoc);
           assert.deepEqual(
-            channelDoc.turns.map(({ role, content }) => ({ role, content })),
+            channelDoc.turns.map(
+              ({ role, content }: Record<string, any>) => ({ role, content }),
+            ),
             [
               { role: 'user', content: 'first question' },
               { role: 'assistant', content: 'echo: first question' },
@@ -171,17 +181,16 @@ test(
               /Astuce/.test(request.body.content),
           );
 
-          assert.deepEqual(deepseek.calls.at(-1).messages, [
+          assert.deepEqual(deepseek.calls.at(-1)!.messages, [
             { role: 'user', content: 'private hello' },
           ]);
           assert.equal(
-            await db.collection('dm_memories').countDocuments({ _id: 'user-1' }),
+            await collection(db, 'dm_memories').countDocuments({ _id: 'user-1' }),
             0,
           );
-          assert.equal(
-            (await db.collection('dm_preferences').findOne({ _id: 'user-1' })).hinted,
-            true,
-          );
+          const dmPreference = await collection(db, 'dm_preferences').findOne({ _id: 'user-1' });
+          assert.ok(dmPreference);
+          assert.equal(dmPreference.hinted, true);
 
           // Second DM still has no memory, and the hint is not repeated.
           discord.dispatchMessage(
@@ -200,7 +209,7 @@ test(
               request.channelId === 'dm-1' &&
               request.body.content === 'echo: second private',
           );
-          assert.deepEqual(deepseek.calls.at(-1).messages, [
+          assert.deepEqual(deepseek.calls.at(-1)!.messages, [
             { role: 'user', content: 'second private' },
           ]);
 
@@ -230,9 +239,10 @@ test(
           assert.match(memoOnReply.body.data.content, /Mémoire privée activée/);
           assert.equal(memoOnReply.body.data.flags, MessageFlags.Ephemeral);
 
-          const preference = await db
-            .collection('dm_preferences')
-            .findOne({ _id: 'user-1' });
+          const preference = await collection(db, 'dm_preferences').findOne({
+            _id: 'user-1',
+          });
+          assert.ok(preference);
           assert.equal(preference.enabled, true);
 
           discord.dispatchMessage(
@@ -269,7 +279,7 @@ test(
               request.body.content === 'echo: remember this',
           );
 
-          assert.deepEqual(deepseek.calls.at(-1).messages, [
+          assert.deepEqual(deepseek.calls.at(-1)!.messages, [
             { role: 'user', content: 'after opt-in' },
             { role: 'assistant', content: 'echo: after opt-in' },
             { role: 'user', content: 'remember this' },
@@ -313,7 +323,7 @@ test(
           );
           assert.match(memoOffReply.body.data.content, /historique effacé/);
           assert.equal(
-            await db.collection('dm_memories').countDocuments({ _id: 'user-1' }),
+            await collection(db, 'dm_memories').countDocuments({ _id: 'user-1' }),
             0,
           );
 
@@ -333,7 +343,7 @@ test(
               request.channelId === 'dm-1' &&
               request.body.content === 'echo: forgotten',
           );
-          assert.deepEqual(deepseek.calls.at(-1).messages, [
+          assert.deepEqual(deepseek.calls.at(-1)!.messages, [
             { role: 'user', content: 'forgotten' },
           ]);
 
@@ -372,9 +382,7 @@ test(
 
           // Channel memory was never touched by the DM flows.
           assert.equal(
-            await db
-              .collection('channel_memories')
-              .countDocuments({ _id: 'user-1' }),
+            await collection(db, 'channel_memories').countDocuments({ _id: 'user-1' }),
             0,
           );
           assert.deepEqual(logger.entries.error, []);
