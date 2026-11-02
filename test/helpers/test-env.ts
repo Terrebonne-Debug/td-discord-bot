@@ -2,7 +2,7 @@
 // real .env or shell configuration.
 process.env.DOTENV_CONFIG_PATH = '/dev/null';
 
-const DEFAULTS = {
+const DEFAULTS: Record<string, string> = {
   DISCORD_TOKEN: 'test-discord-token',
   DISCORD_GUILD_ID: '',
   DEEPSEEK_API_KEY: 'test-deepseek-key',

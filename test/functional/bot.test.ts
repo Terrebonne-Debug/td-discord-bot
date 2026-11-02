@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import test from 'node:test';
 import { ChannelType, Events, MessageFlags } from 'discord.js';
-import { createBot } from '../../src/bot.js';
+import { createBot } from '../../src/bot.ts';
+import type { BotSettings } from '../../src/bot.ts';
+import type { Turn } from '../../src/types.ts';
 import {
   BOT_USER_ID,
   createFakeClient,
@@ -10,9 +12,10 @@ import {
   createFakeMemory,
   createFakeMessage,
   createLogger,
-} from '../helpers/fakes.js';
+} from '../helpers/fakes.ts';
+import type { FakeClient, FakeMemory } from '../helpers/fakes.ts';
 
-const settings = {
+const settings: BotSettings = {
   maxPromptChars: 50,
   maxHistoryTurns: 2,
 };
@@ -20,7 +23,15 @@ const settings = {
 const memoOn = MessageFlags.Ephemeral;
 const LONG_REPLY = `${'a'.repeat(2000)}${'b'.repeat(10)}`;
 
-function setup({ memory = createFakeMemory(), ask = async () => 'reply', client = createFakeClient() } = {}) {
+function setup({
+  memory = createFakeMemory(),
+  ask = async () => 'reply',
+  client = createFakeClient(),
+}: {
+  memory?: FakeMemory;
+  ask?: (history: Turn[], prompt: string) => Promise<string>;
+  client?: FakeClient;
+} = {}) {
   const logger = createLogger();
   const bot = createBot({ client, memory, settings, ask, logger });
   return { bot, memory, logger, client };
@@ -31,7 +42,7 @@ function typingChannel() {
 }
 
 async function deferred() {
-  let resolve;
+  let resolve: (value?: unknown) => void = () => {};
   const promise = new Promise((r) => {
     resolve = r;
   });
@@ -42,7 +53,7 @@ test('/q in a guild uses shared channel memory and replies through the interacti
   const memory = createFakeMemory({
     histories: { 'channel:channel-1': [{ role: 'user', content: 'earlier' }] },
   });
-  const asks = [];
+  const asks: Array<{ history: Turn[]; prompt: string }> = [];
   const { bot, logger } = setup({
     memory,
     ask: async (history, prompt) => {
@@ -80,8 +91,8 @@ test('/q in a guild uses shared channel memory and replies through the interacti
     'deferReply',
     'editReply',
   ]);
-  assert.equal(interaction.calls[1].payload.content, 'the answer');
-  assert.deepEqual(interaction.calls[1].payload.allowedMentions, { parse: [] });
+  assert.equal(interaction.calls[1].payload?.content, 'the answer');
+  assert.deepEqual(interaction.calls[1].payload?.allowedMentions, { parse: [] });
   assert.deepEqual(logger.entries.error, []);
 });
 
@@ -110,9 +121,9 @@ test('/q in a DM uses private memory and shows the opt-in hint once', async () =
   );
 
   const hint = interaction.calls.at(-1);
-  assert.equal(hint.method, 'followUp');
-  assert.match(hint.payload.content, /mémoire est désactivée par défaut/);
-  assert.equal(hint.payload.flags, memoOn);
+  assert.equal(hint?.method, 'followUp');
+  assert.match(hint?.payload?.content ?? '', /mémoire est désactivée par défaut/);
+  assert.equal(hint?.payload?.flags, memoOn);
 });
 
 test('/q in a DM does not repeat the hint after the first time', async () => {
@@ -132,7 +143,7 @@ test('a failing hint lookup is logged and does not fail the answer', async () =>
   const interaction = createFakeInteraction({ guildId: null, userId: 'user-1' });
   await bot.handleInteraction(interaction);
 
-  assert.equal(interaction.calls.at(-1).method, 'editReply');
+  assert.equal(interaction.calls.at(-1)?.method, 'editReply');
   assert.match(logger.entries.error[0], /Could not show the DM memory hint: showDmHintOnce failed/);
 });
 
@@ -157,7 +168,7 @@ test('/q in a DM answers without a hint when memory is in fallback mode', async 
   const interaction = createFakeInteraction({ guildId: null, userId: 'user-1' });
   await bot.handleInteraction(interaction);
 
-  assert.equal(interaction.calls.at(-1).payload.content, 'reply');
+  assert.equal(interaction.calls.at(-1)?.payload?.content, 'reply');
   assert.equal(memory.calls.some((call) => call.method === 'showDmHintOnce'), false);
 });
 
@@ -172,7 +183,7 @@ test('non-Error failures are logged without crashing', async () => {
   await assert.doesNotReject(bot.handleMessage(message));
 
   assert.match(logger.entries.error[0], /Failed to handle message: model exploded/);
-  assert.match(message.calls.at(-1).payload.content, /request failed/);
+  assert.match(message.calls.at(-1)?.payload?.content ?? '', /request failed/);
 });
 
 test('/memo is refused in a public channel', async () => {
@@ -187,8 +198,8 @@ test('/memo is refused in a public channel', async () => {
 
   assert.equal(interaction.calls.length, 1);
   assert.equal(interaction.calls[0].method, 'reply');
-  assert.match(interaction.calls[0].payload.content, /qu'en message privé/);
-  assert.equal(interaction.calls[0].payload.flags, memoOn);
+  assert.match(interaction.calls[0].payload?.content ?? '', /qu'en message privé/);
+  assert.equal(interaction.calls[0].payload?.flags, memoOn);
   assert.equal(memory.calls.some((call) => call.method === 'setDmEnabled'), false);
 });
 
@@ -203,7 +214,7 @@ test('/memo explains that private memory needs MongoDB in fallback mode', async 
   });
   await bot.handleInteraction(interaction);
 
-  assert.match(interaction.calls[0].payload.content, /nécessite MongoDB/);
+  assert.match(interaction.calls[0].payload?.content ?? '', /nécessite MongoDB/);
   assert.equal(memory.calls.some((call) => call.method === 'setDmEnabled'), false);
 });
 
@@ -223,9 +234,9 @@ test('/memo on enables private memory in a DM', async () => {
     memory.calls.find((call) => call.method === 'setDmEnabled'),
     { method: 'setDmEnabled', userId: 'user-1', enabled: true },
   );
-  assert.match(interaction.calls[0].payload.content, /Mémoire privée activée/);
-  assert.match(interaction.calls[0].payload.content, /2 derniers échanges/);
-  assert.equal(interaction.calls[0].payload.flags, memoOn);
+  assert.match(interaction.calls[0].payload?.content ?? '', /Mémoire privée activée/);
+  assert.match(interaction.calls[0].payload?.content ?? '', /2 derniers échanges/);
+  assert.equal(interaction.calls[0].payload?.flags, memoOn);
 });
 
 test('/memo off disables private memory in a DM', async () => {
@@ -244,7 +255,7 @@ test('/memo off disables private memory in a DM', async () => {
     memory.calls.find((call) => call.method === 'setDmEnabled'),
     { method: 'setDmEnabled', userId: 'user-1', enabled: false },
   );
-  assert.match(interaction.calls[0].payload.content, /historique effacé/);
+  assert.match(interaction.calls[0].payload?.content ?? '', /historique effacé/);
 });
 
 test('/memo reports a failed preference update and tolerates a failed reply', async () => {
@@ -291,12 +302,12 @@ test('/q rejects empty and oversized prompts before deferring', async () => {
 
   const empty = createFakeInteraction({ prompt: '   ' });
   await bot.handleInteraction(empty);
-  assert.equal(empty.calls[0].payload.content, 'Please include a question.');
-  assert.equal(empty.calls[0].payload.flags, memoOn);
+  assert.equal(empty.calls[0].payload?.content, 'Please include a question.');
+  assert.equal(empty.calls[0].payload?.flags, memoOn);
 
   const long = createFakeInteraction({ prompt: 'x'.repeat(51) });
   await bot.handleInteraction(long);
-  assert.match(long.calls[0].payload.content, /under 50 characters/);
+  assert.match(long.calls[0].payload?.content ?? '', /under 50 characters/);
 
   assert.equal(memory.calls.length, 0);
 });
@@ -320,13 +331,13 @@ test('a second /q in the same channel waits while the first is in flight', async
   await bot.handleInteraction(second);
 
   assert.match(
-    second.calls.find((call) => call.method === 'editReply').payload.content,
+    second.calls.find((call) => call.method === 'editReply')?.payload?.content ?? '',
     /still working on the previous question/,
   );
 
   gate.resolve();
   await firstRun;
-  assert.equal(first.calls.at(-1).payload.content, 'first answer');
+  assert.equal(first.calls.at(-1)?.payload?.content, 'first answer');
 });
 
 test('/q reports a memory read failure with the memory-specific message', async () => {
@@ -337,8 +348,8 @@ test('/q reports a memory read failure with the memory-specific message', async 
   await bot.handleInteraction(interaction);
 
   assert.match(logger.entries.error[0], /Failed to handle \/q/);
-  assert.match(interaction.calls.at(-1).payload.content, /memory is temporarily unavailable/);
-  assert.equal(interaction.calls.at(-1).payload.flags, undefined);
+  assert.match(interaction.calls.at(-1)?.payload?.content ?? '', /memory is temporarily unavailable/);
+  assert.equal(interaction.calls.at(-1)?.payload?.flags, undefined);
 });
 
 test('/q reports model failures after deferring', async () => {
@@ -352,8 +363,8 @@ test('/q reports model failures after deferring', async () => {
   await bot.handleInteraction(interaction);
 
   assert.equal(interaction.deferred, true);
-  assert.equal(interaction.calls.at(-1).method, 'editReply');
-  assert.match(interaction.calls.at(-1).payload.content, /rate limiting/);
+  assert.equal(interaction.calls.at(-1)?.method, 'editReply');
+  assert.match(interaction.calls.at(-1)?.payload?.content ?? '', /rate limiting/);
 });
 
 test('/q replies ephemerally when an early failure happens before deferring', async () => {
@@ -364,9 +375,9 @@ test('/q replies ephemerally when an early failure happens before deferring', as
 
   assert.equal(interaction.deferred, false);
   assert.equal(interaction.calls.length, 2);
-  assert.equal(interaction.calls.at(-1).method, 'reply');
-  assert.match(interaction.calls.at(-1).payload.content, /request failed/);
-  assert.equal(interaction.calls.at(-1).payload.flags, memoOn);
+  assert.equal(interaction.calls.at(-1)?.method, 'reply');
+  assert.match(interaction.calls.at(-1)?.payload?.content ?? '', /request failed/);
+  assert.equal(interaction.calls.at(-1)?.payload?.flags, memoOn);
 });
 
 test('/q tolerates a failure of the error reply itself', async () => {
@@ -394,8 +405,8 @@ test('/q splits long model answers into an edit and follow-ups', async () => {
     'editReply',
     'followUp',
   ]);
-  assert.equal(interaction.calls[1].payload.content.length, 2000);
-  assert.equal(interaction.calls[2].payload.content, 'b'.repeat(10));
+  assert.equal(interaction.calls[1].payload?.content.length, 2000);
+  assert.equal(interaction.calls[2].payload?.content, 'b'.repeat(10));
 });
 
 test('/q tolerates a channel without typing support', async () => {
@@ -404,7 +415,7 @@ test('/q tolerates a channel without typing support', async () => {
   const interaction = createFakeInteraction({ channelId: 'channel-1', channel: null });
   await bot.handleInteraction(interaction);
 
-  assert.equal(interaction.calls.at(-1).payload.content, 'reply');
+  assert.equal(interaction.calls.at(-1)?.payload?.content, 'reply');
 });
 
 test('a failing appendTurn is logged but the answer is still sent', async () => {
@@ -415,7 +426,7 @@ test('a failing appendTurn is logged but the answer is still sent', async () => 
   await bot.handleInteraction(interaction);
 
   assert.match(logger.entries.error[0], /Could not save the conversation turn/);
-  assert.equal(interaction.calls.at(-1).payload.content, 'reply');
+  assert.equal(interaction.calls.at(-1)?.payload?.content, 'reply');
 });
 
 test('/q responds with a memory error when the interaction is already deferred', async () => {
@@ -426,8 +437,8 @@ test('/q responds with a memory error when the interaction is already deferred',
   await bot.handleInteraction(interaction);
 
   assert.equal(interaction.deferred, true);
-  assert.equal(interaction.calls.at(-1).method, 'editReply');
-  assert.match(interaction.calls.at(-1).payload.content, /memory is temporarily unavailable/);
+  assert.equal(interaction.calls.at(-1)?.method, 'editReply');
+  assert.match(interaction.calls.at(-1)?.payload?.content ?? '', /memory is temporarily unavailable/);
 });
 
 test('messages from bots and system messages are ignored', async () => {
@@ -453,7 +464,7 @@ test('a mentioned guild message answers with shared channel memory', async () =>
   const memory = createFakeMemory({
     histories: { 'channel:channel-1': [{ role: 'user', content: 'earlier' }] },
   });
-  const asks = [];
+  const asks: Array<{ history: Turn[]; prompt: string }> = [];
   const { bot } = setup({
     memory,
     ask: async (history, prompt) => {
@@ -470,9 +481,9 @@ test('a mentioned guild message answers with shared channel memory', async () =>
 
   assert.deepEqual(asks[0].history, [{ role: 'user', content: 'earlier' }]);
   assert.equal(asks[0].prompt, 'question');
-  assert.equal(message.calls.at(-1).method, 'reply');
-  assert.equal(message.calls.at(-1).payload.content, 'guild answer');
-  assert.deepEqual(message.calls.at(-1).payload.allowedMentions, {
+  assert.equal(message.calls.at(-1)?.method, 'reply');
+  assert.equal(message.calls.at(-1)?.payload?.content, 'guild answer');
+  assert.deepEqual(message.calls.at(-1)?.payload?.allowedMentions, {
     parse: [],
     repliedUser: false,
   });
@@ -509,8 +520,8 @@ test('a DM message answers privately and sends the opt-in hint in the DM', async
       { method: 'showDmHintOnce', scope: undefined, key: undefined, userId: 'user-1' },
     ],
   );
-  assert.equal(message.calls.at(-1).method, 'send');
-  assert.match(message.calls.at(-1).payload.content, /memo on/);
+  assert.equal(message.calls.at(-1)?.method, 'send');
+  assert.match(message.calls.at(-1)?.payload?.content ?? '', /memo on/);
 });
 
 test('an empty mention asks for a question', async () => {
@@ -519,7 +530,7 @@ test('an empty mention asks for a question', async () => {
 
   await bot.handleMessage(message);
 
-  assert.equal(message.calls[0].payload.content, 'Hi! Mention me with a question, or use `/q`.');
+  assert.equal(message.calls[0].payload?.content, 'Hi! Mention me with a question, or use `/q`.');
   assert.equal(memory.calls.length, 0);
 });
 
@@ -531,7 +542,7 @@ test('an oversized message is refused before calling the model', async () => {
 
   await bot.handleMessage(message);
 
-  assert.match(message.calls[0].payload.content, /under 50 characters/);
+  assert.match(message.calls[0].payload?.content ?? '', /under 50 characters/);
   assert.equal(memory.calls.length, 0);
 });
 
@@ -552,7 +563,7 @@ test('a second mentioned message waits while the first is in flight', async () =
   await bot.handleMessage(second);
 
   assert.match(
-    second.calls.find((call) => call.method === 'reply').payload.content,
+    second.calls.find((call) => call.method === 'reply')?.payload?.content ?? '',
     /still working on the previous question/,
   );
 
@@ -568,8 +579,8 @@ test('a message answer longer than the limit is split across replies', async () 
 
   const sends = message.calls.filter((call) => call.method === 'reply' || call.method === 'send');
   assert.deepEqual(sends.map((call) => call.method), ['reply', 'send']);
-  assert.equal(sends[0].payload.content.length, 2000);
-  assert.equal(sends[1].payload.content, 'b'.repeat(10));
+  assert.equal(sends[0].payload?.content.length, 2000);
+  assert.equal(sends[1].payload?.content, 'b'.repeat(10));
 });
 
 test('message errors are reported through the error description', async () => {
@@ -582,7 +593,7 @@ test('message errors are reported through the error description', async () => {
 
   await bot.handleMessage(message);
 
-  assert.match(message.calls.at(-1).payload.content, /rejected the API key/);
+  assert.match(message.calls.at(-1)?.payload?.content ?? '', /rejected the API key/);
 });
 
 test('a memory read failure in a message is reported as such', async () => {
@@ -592,7 +603,7 @@ test('a memory read failure in a message is reported as such', async () => {
 
   await bot.handleMessage(message);
 
-  assert.match(message.calls.at(-1).payload.content, /memory is temporarily unavailable/);
+  assert.match(message.calls.at(-1)?.payload?.content ?? '', /memory is temporarily unavailable/);
 });
 
 test('a failing message reply is logged and swallowed', async () => {
@@ -614,7 +625,7 @@ test('a failing typing indicator does not prevent the answer', async () => {
 
   await bot.handleMessage(message);
 
-  assert.equal(message.calls.at(-1).payload.content, 'reply');
+  assert.equal(message.calls.at(-1)?.payload?.content, 'reply');
 });
 
 test('a DM message still works when the channel cannot send typing indicators', async () => {
@@ -629,14 +640,14 @@ test('a DM message still works when the channel cannot send typing indicators', 
 
   await bot.handleMessage(message);
 
-  assert.equal(message.calls.at(-1).payload.content, 'reply');
+  assert.equal(message.calls.at(-1)?.payload?.content, 'reply');
 });
 
 test('messages work without a cached bot user', async () => {
   const memory = createFakeMemory();
   const logger = createLogger();
-  const client = new EventEmitter();
-  client.on = EventEmitter.prototype.on.bind(client);
+  const client = Object.assign(new EventEmitter(), { user: null });
+  client.on = EventEmitter.prototype.on.bind(client) as unknown as typeof client.on;
   const bot = createBot({ client, memory, settings, ask: async () => 'reply', logger });
 
   const dm = createFakeMessage({
@@ -647,7 +658,7 @@ test('messages work without a cached bot user', async () => {
   });
   await bot.handleMessage(dm);
 
-  assert.equal(dm.calls.at(-1).payload.content, 'reply');
+  assert.equal(dm.calls.at(-1)?.payload?.content, 'reply');
 });
 
 test('Discord client errors are logged', () => {

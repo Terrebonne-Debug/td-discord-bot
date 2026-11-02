@@ -31,7 +31,8 @@ Tout se modifie dans `.env`, sans toucher au code.
 
 ## Prérequis
 
-- Node.js 20 ou plus récent
+- Node.js 24 ou plus récent — le code est en TypeScript et Node l'exécute
+  nativement (type stripping), sans étape de compilation
 - Un jeton de bot Discord
 - Une clé API DeepSeek
 - MongoDB, fourni ici via Docker Compose (facultatif : sans base, le bot
@@ -94,6 +95,14 @@ Tout se modifie dans `.env`, sans toucher au code.
 
 Les prompts et les réponses générées sont envoyés à l'API DeepSeek.
 Considérez que les conversations avec le bot quittent votre serveur Discord.
+
+## TypeScript
+
+Le projet est entièrement écrit en TypeScript (`src/` et `test/`), avec
+`strict` activé, et exécuté directement par Node.js 24 sans build : les
+imports conservent leur extension `.ts` et `tsc` ne sert qu'à vérifier les
+types (`npm run check`). Seule la syntaxe TypeScript effaçable est utilisée
+(pas d'enum, pas de namespace), ce que garantit `erasableSyntaxOnly`.
 
 ## Mémoire
 
@@ -178,7 +187,7 @@ git check-ignore -v .env
 
 ```bash
 npm start             # lancer le bot
-npm run check         # vérifier la syntaxe des fichiers source
+npm run check         # vérifier les types de src/ et test/ (tsc --noEmit)
 npm test              # tests unitaires, fonctionnels et bout en bout
 npm run test:coverage # idem, avec un seuil de couverture de 100 %
 ```
@@ -211,7 +220,7 @@ portant les étiquettes `self-hosted`, `Linux`, `X64` et `discord-bot`
 (le runner `mkII` du dépôt). Il exécute d'abord les vérifications de base
 (`npm ci`, `npm run check`), puis les tests complets avec un conteneur
 MongoDB isolé sur `127.0.0.1:27018` et des seuils de couverture à 100 %
-(lignes, fonctions et branches) sur `src/**`, hors `src/index.js` (simple
+(lignes, fonctions et branches) sur `src/**`, hors `src/index.ts` (simple
 point d'entrée).
 
 ## Dépannage

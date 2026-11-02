@@ -1,42 +1,92 @@
 import { MongoClient } from 'mongodb';
+import type { Collection, Db } from 'mongodb';
+import type { MemoryMode, MemoryScope, Turn } from './types.ts';
 
 const CHANNEL_COLLECTION = 'channel_memories';
 const DM_COLLECTION = 'dm_memories';
 const DM_PREFERENCES_COLLECTION = 'dm_preferences';
 
+/** A document in channel_memories or dm_memories. */
+interface MemoryDocument {
+  _id: string;
+  turns?: Turn[];
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+/** A document in dm_preferences: the opt-in flag, no conversation content. */
+interface PreferenceDocument {
+  _id: string;
+  enabled?: boolean;
+  hinted?: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
 export class MemoryUnavailableError extends Error {
-  constructor(cause) {
+  memoryUnavailable = true;
+
+  constructor(cause: unknown) {
     super('Conversation memory is unavailable.', { cause });
     this.name = 'MemoryUnavailableError';
-    this.memoryUnavailable = true;
   }
 }
 
-function assertScope(scope) {
+export interface MemoryConnectOptions {
+  uri: string | null;
+  dbName: string;
+  timeoutMs: number;
+  maxHistoryTurns: number;
+  ttlDays?: number | null;
+}
+
+/**
+ * The conversation-memory API the rest of the bot depends on. MemoryStore
+ * implements it, and tests inject plain objects that do too.
+ */
+export interface ConversationMemory {
+  readonly mode: MemoryMode;
+  getHistory(scope: MemoryScope, key: string): Promise<Turn[]>;
+  appendTurn(scope: MemoryScope, key: string, prompt: string, reply: string): Promise<boolean>;
+  isDmEnabled(userId: string): Promise<boolean>;
+  setDmEnabled(userId: string, enabled: boolean): Promise<void>;
+  showDmHintOnce(userId: string): Promise<boolean>;
+  close(): Promise<void>;
+}
+
+/** The only thing MemoryStore needs from a MongoDB client after connecting. */
+export interface Closeable {
+  close(): Promise<void>;
+}
+
+function assertScope(scope: string): asserts scope is MemoryScope {
   if (scope !== 'channel' && scope !== 'dm') {
     throw new Error(`Unknown memory scope: ${scope}`);
   }
 }
 
-function normalizeTurns(turns) {
-  if (!Array.isArray(turns)) return [];
-
-  return turns
-    .filter(
-      (turn) =>
-        turn &&
-        (turn.role === 'user' || turn.role === 'assistant') &&
-        typeof turn.content === 'string',
-    )
-    .map(({ role, content }) => ({ role, content }));
+function isTurn(value: unknown): value is Turn {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'role' in value &&
+    'content' in value &&
+    (value.role === 'user' || value.role === 'assistant') &&
+    typeof value.content === 'string'
+  );
 }
 
-async function closeQuietly(client) {
+function normalizeTurns(turns: unknown): Turn[] {
+  if (!Array.isArray(turns)) return [];
+  return turns.filter(isTurn).map(({ role, content }) => ({ role, content }));
+}
+
+async function closeQuietly(client: Closeable | null | undefined): Promise<void> {
   if (!client) return;
   await client.close().catch(() => {});
 }
 
-async function ensureTtlIndexes(db, ttlDays) {
+async function ensureTtlIndexes(db: Db, ttlDays: number | null): Promise<void> {
   if (!ttlDays) return;
 
   const options = { expireAfterSeconds: ttlDays * 86_400 };
@@ -61,14 +111,22 @@ async function ensureTtlIndexes(db, ttlDays) {
  * Scope selects the collection; a key from one scope can never address the
  * other collection.
  */
-export class MemoryStore {
-  #client;
-  #db;
-  #maxMessages;
-  #channels;
-  #mode;
+export class MemoryStore implements ConversationMemory {
+  #client: Closeable | null;
+  #db: Db | null;
+  #maxMessages: number;
+  #channels: Map<string, Turn[]>;
+  #mode: MemoryMode;
 
-  constructor({ client = null, db = null, maxHistoryTurns }) {
+  constructor({
+    client = null,
+    db = null,
+    maxHistoryTurns,
+  }: {
+    client?: Closeable | null;
+    db?: Db | null;
+    maxHistoryTurns: number;
+  }) {
     this.#client = client;
     this.#db = db;
     this.#maxMessages = maxHistoryTurns * 2;
@@ -76,11 +134,17 @@ export class MemoryStore {
     this.#mode = db ? 'mongo' : 'memory';
   }
 
-  get mode() {
+  get mode(): MemoryMode {
     return this.#mode;
   }
 
-  static async connect({ uri, dbName, timeoutMs, maxHistoryTurns, ttlDays = null }) {
+  static async connect({
+    uri,
+    dbName,
+    timeoutMs,
+    maxHistoryTurns,
+    ttlDays = null,
+  }: MemoryConnectOptions): Promise<MemoryStore> {
     if (!uri) {
       console.warn(
         'MONGODB_URI is not set; conversation memory stays in RAM and is lost on restart.',
@@ -109,7 +173,7 @@ export class MemoryStore {
     }
   }
 
-  async getHistory(scope, key) {
+  async getHistory(scope: MemoryScope, key: string): Promise<Turn[]> {
     assertScope(scope);
 
     // Private memory is opt-in: without an explicit preference, nothing is
@@ -127,12 +191,17 @@ export class MemoryStore {
     return normalizeTurns(doc?.turns);
   }
 
-  async appendTurn(scope, key, prompt, reply) {
+  async appendTurn(
+    scope: MemoryScope,
+    key: string,
+    prompt: string,
+    reply: string,
+  ): Promise<boolean> {
     assertScope(scope);
 
     if (scope === 'dm' && !(await this.isDmEnabled(key))) return false;
 
-    const turn = [
+    const turn: Turn[] = [
       { role: 'user', content: prompt },
       { role: 'assistant', content: reply },
     ];
@@ -160,7 +229,7 @@ export class MemoryStore {
     return true;
   }
 
-  async isDmEnabled(userId) {
+  async isDmEnabled(userId: string): Promise<boolean> {
     if (this.#mode !== 'mongo') return false;
 
     const preference = await this.#preferences().findOne(
@@ -174,7 +243,7 @@ export class MemoryStore {
    * Persist the user's private-memory choice. Turning it off also deletes the
    * stored private history: off means the bot keeps nothing.
    */
-  async setDmEnabled(userId, enabled) {
+  async setDmEnabled(userId: string, enabled: boolean): Promise<void> {
     if (this.#mode !== 'mongo') {
       throw new MemoryUnavailableError(new Error('MongoDB is not connected.'));
     }
@@ -190,7 +259,7 @@ export class MemoryStore {
     );
 
     if (!enabled) {
-      await this.#db.collection(DM_COLLECTION).deleteOne({ _id: userId });
+      await this.#collection('dm').deleteOne({ _id: userId });
     }
   }
 
@@ -199,7 +268,7 @@ export class MemoryStore {
    * talk to the bot in private, so the opt-in hint is shown exactly once.
    * Returns true only for the call that created the document.
    */
-  async showDmHintOnce(userId) {
+  async showDmHintOnce(userId: string): Promise<boolean> {
     if (this.#mode !== 'mongo') return false;
 
     const now = new Date();
@@ -217,15 +286,19 @@ export class MemoryStore {
     return result.upsertedCount === 1;
   }
 
-  async close() {
+  async close(): Promise<void> {
     await closeQuietly(this.#client);
   }
 
-  #collection(scope) {
-    return this.#db.collection(scope === 'channel' ? CHANNEL_COLLECTION : DM_COLLECTION);
+  #collection(scope: MemoryScope): Collection<MemoryDocument> {
+    // #db is always set in 'mongo' mode, and these accessors are only reached
+    // from 'mongo' code paths.
+    return this.#db!.collection<MemoryDocument>(
+      scope === 'channel' ? CHANNEL_COLLECTION : DM_COLLECTION,
+    );
   }
 
-  #preferences() {
-    return this.#db.collection(DM_PREFERENCES_COLLECTION);
+  #preferences(): Collection<PreferenceDocument> {
+    return this.#db!.collection<PreferenceDocument>(DM_PREFERENCES_COLLECTION);
   }
 }

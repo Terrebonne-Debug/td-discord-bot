@@ -2,20 +2,24 @@ import assert from 'node:assert/strict';
 import { EventEmitter, once } from 'node:events';
 import test from 'node:test';
 import { Client, GatewayIntentBits, Partials } from 'discord.js';
-import { createDefaultClient, installShutdownHandlers, start } from '../../src/start.js';
-import { createFakeClient, createFakeMemory, createLogger } from '../helpers/fakes.js';
+import { createDefaultClient, installShutdownHandlers, start } from '../../src/start.ts';
+import type { ProcessLike, StartupConfig } from '../../src/start.ts';
+import type { MemoryConnectOptions } from '../../src/memory.ts';
+import { createFakeClient, createFakeMemory, createLogger } from '../helpers/fakes.ts';
 
-function makeProcess() {
+function makeProcess(): EventEmitter & { exits: number[]; exit(code: number): void } {
   const processRef = new EventEmitter();
-  processRef.exits = [];
-  processRef.exit = (code) => {
-    processRef.exits.push(code);
-    processRef.emit('exit', code);
-  };
-  return processRef;
+  const fake = Object.assign(processRef, {
+    exits: [] as number[],
+    exit(code: number) {
+      fake.exits.push(code);
+      fake.emit('exit', code);
+    },
+  });
+  return fake as EventEmitter & { exits: number[]; exit(code: number): void };
 }
 
-function appConfig(overrides = {}) {
+function appConfig(overrides: Partial<StartupConfig> = {}): StartupConfig {
   return {
     discordToken: 'discord-token',
     discordGuildId: 'guild-1',
@@ -45,7 +49,7 @@ test('createDefaultClient enables the required intents and channel partials', ()
   ]) {
     assert.equal(client.options.intents.has(intent), true);
   }
-  assert.ok(client.options.partials.includes(Partials.Channel));
+  assert.ok(client.options.partials?.includes(Partials.Channel));
 
   client.destroy();
 });
@@ -93,7 +97,7 @@ test('start connects MongoDB, logs settings and registers the commands', async (
   const memory = createFakeMemory({ mode: 'mongo' });
   const logger = createLogger();
   const processRef = makeProcess();
-  const connectCalls = [];
+  const connectCalls: MemoryConnectOptions[] = [];
 
   const result = await start({
     appConfig: appConfig(),

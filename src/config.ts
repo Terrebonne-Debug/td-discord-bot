@@ -1,9 +1,36 @@
 import 'dotenv/config';
 
-const THINKING_MODES = new Set(['enabled', 'disabled']);
-const EFFORT_LEVELS = new Set(['low', 'medium', 'high', 'max']);
+export type ThinkingMode = 'enabled' | 'disabled';
+export type EffortLevel = 'low' | 'medium' | 'high' | 'max';
 
-function required(env, name) {
+const THINKING_MODES = new Set<string>(['enabled', 'disabled']);
+const EFFORT_LEVELS = new Set<string>(['low', 'medium', 'high', 'max']);
+
+/** Every configuration value, after validation and defaulting. */
+export interface Config {
+  discordToken: string;
+  discordGuildId: string | null;
+
+  deepseekApiKey: string;
+  deepseekBaseUrl: string;
+  deepseekModel: string;
+  deepseekThinking: ThinkingMode;
+  deepseekEffort: EffortLevel;
+  deepseekMaxTokens: number;
+  deepseekTemperature: number | null;
+  deepseekTimeoutMs: number;
+
+  systemPrompt: string;
+  maxHistoryTurns: number;
+  maxPromptChars: number;
+
+  mongodbUri: string | null;
+  mongodbDb: string;
+  mongodbTimeoutMs: number;
+  memoryTtlDays: number | null;
+}
+
+function required(env: NodeJS.ProcessEnv, name: string): string {
   const value = env[name]?.trim();
   if (!value) {
     throw new Error(`Missing required environment variable: ${name}. See .env.example.`);
@@ -14,12 +41,12 @@ function required(env, name) {
   return value;
 }
 
-function optional(env, name, fallback) {
+function optional(env: NodeJS.ProcessEnv, name: string, fallback: string): string {
   const value = env[name]?.trim();
   return value || fallback;
 }
 
-function positiveInt(env, name, fallback) {
+function positiveInt(env: NodeJS.ProcessEnv, name: string, fallback: number): number {
   const raw = optional(env, name, String(fallback));
   const value = Number(raw);
   if (!Number.isInteger(value) || value <= 0) {
@@ -28,7 +55,7 @@ function positiveInt(env, name, fallback) {
   return value;
 }
 
-function optionalNumber(env, name, min, max) {
+function optionalNumber(env: NodeJS.ProcessEnv, name: string, min: number, max: number): number | null {
   const raw = optional(env, name, '');
   if (!raw) return null;
 
@@ -39,7 +66,7 @@ function optionalNumber(env, name, min, max) {
   return value;
 }
 
-function optionalPositiveInt(env, name) {
+function optionalPositiveInt(env: NodeJS.ProcessEnv, name: string): number | null {
   const raw = optional(env, name, '');
   if (!raw) return null;
 
@@ -55,22 +82,24 @@ function optionalPositiveInt(env, name) {
  * a pure function so every validation branch can be tested without reloading
  * the module.
  */
-export function parseConfig(env = process.env) {
-  const thinking = optional(env, 'DEEPSEEK_THINKING', 'enabled').toLowerCase();
-  if (!THINKING_MODES.has(thinking)) {
-    throw new Error(`DEEPSEEK_THINKING must be "enabled" or "disabled" (received: ${thinking}).`);
+export function parseConfig(env: NodeJS.ProcessEnv = process.env): Readonly<Config> {
+  const thinkingRaw = optional(env, 'DEEPSEEK_THINKING', 'enabled').toLowerCase();
+  if (!THINKING_MODES.has(thinkingRaw)) {
+    throw new Error(`DEEPSEEK_THINKING must be "enabled" or "disabled" (received: ${thinkingRaw}).`);
   }
+  const thinking = thinkingRaw as ThinkingMode;
 
-  const effort = optional(env, 'DEEPSEEK_EFFORT', 'max').toLowerCase();
-  if (!EFFORT_LEVELS.has(effort)) {
+  const effortRaw = optional(env, 'DEEPSEEK_EFFORT', 'max').toLowerCase();
+  if (!EFFORT_LEVELS.has(effortRaw)) {
     throw new Error(
-      `DEEPSEEK_EFFORT must be one of ${[...EFFORT_LEVELS].join(', ')} (received: ${effort}).`,
+      `DEEPSEEK_EFFORT must be one of ${[...EFFORT_LEVELS].join(', ')} (received: ${effortRaw}).`,
     );
   }
+  const effort = effortRaw as EffortLevel;
 
   return Object.freeze({
     discordToken: required(env, 'DISCORD_TOKEN'),
-    discordGuildId: optional(env, 'DISCORD_GUILD_ID', null),
+    discordGuildId: optional(env, 'DISCORD_GUILD_ID', '') || null,
 
     deepseekApiKey: required(env, 'DEEPSEEK_API_KEY'),
     deepseekBaseUrl: optional(env, 'DEEPSEEK_BASE_URL', 'https://api.deepseek.com/anthropic').replace(
@@ -94,7 +123,7 @@ export function parseConfig(env = process.env) {
 
     // Conversation memory. Without a reachable MongoDB the bot falls back to
     // in-RAM memory (lost on restart), and private memory stays disabled.
-    mongodbUri: optional(env, 'MONGODB_URI', null),
+    mongodbUri: optional(env, 'MONGODB_URI', '') || null,
     mongodbDb: optional(env, 'MONGODB_DB', 'td-discord-bot'),
     mongodbTimeoutMs: positiveInt(env, 'MONGODB_TIMEOUT_MS', 5000),
     memoryTtlDays: optionalPositiveInt(env, 'MEMORY_TTL_DAYS'),

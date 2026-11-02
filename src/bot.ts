@@ -1,6 +1,9 @@
 import { ChannelType, Events, MessageFlags, SlashCommandBuilder } from 'discord.js';
-import { askDeepSeek, describeDeepSeekError } from './deepseek.js';
-import { MemoryUnavailableError } from './memory.js';
+import type { MessageMentionOptions } from 'discord.js';
+import { askDeepSeek, describeDeepSeekError } from './deepseek.ts';
+import { MemoryUnavailableError } from './memory.ts';
+import type { ConversationMemory } from './memory.ts';
+import type { MemoryScope, Turn } from './types.ts';
 
 const DISCORD_MESSAGE_LIMIT = 2000;
 const TYPING_INTERVAL_MS = 8_000;
@@ -8,12 +11,78 @@ const TYPING_INTERVAL_MS = 8_000;
 const DM_MEMORY_HINT =
   'Astuce : en privé, la mémoire est désactivée par défaut. Activez-la avec `/memo on`.';
 
-export function splitMessage(text, limit = DISCORD_MESSAGE_LIMIT) {
+export interface ReplyPayload {
+  content: string;
+  allowedMentions?: MessageMentionOptions;
+  flags?: MessageFlags;
+}
+
+/** A channel that can show the typing indicator. */
+export interface TypingChannel {
+  sendTyping?: () => Promise<unknown>;
+}
+
+/** The slice of a chat-input interaction the bot reads. */
+export interface InteractionLike {
+  commandName: string;
+  channelId: string | null;
+  user: { id: string };
+  channel: TypingChannel | null;
+  deferred: boolean;
+  replied: boolean;
+  isChatInputCommand(): boolean;
+  inGuild(): boolean;
+  options: {
+    getString(name: string, required: true): string;
+    getString(name: string, required?: boolean): string | null;
+    getSubcommand(): string;
+  };
+  deferReply(): Promise<unknown>;
+  reply(payload: ReplyPayload): Promise<unknown>;
+  editReply(payload: ReplyPayload): Promise<unknown>;
+  followUp(payload: ReplyPayload): Promise<unknown>;
+}
+
+/** The slice of a message's channel the bot reads. */
+export interface MessageChannelLike extends TypingChannel {
+  type: ChannelType;
+  send(payload: ReplyPayload): Promise<unknown>;
+}
+
+/** The slice of a Discord message the bot reads. */
+export interface MessageLike {
+  author: { bot: boolean; id: string };
+  system: boolean;
+  channelId: string;
+  content: string;
+  channel: MessageChannelLike;
+  mentions: { users: { has(id: string): boolean } };
+  reply(payload: ReplyPayload): Promise<unknown>;
+}
+
+/** The slice of the Discord client the bot's event handlers need. */
+export interface BotClient {
+  user: { id: string } | null;
+  on(event: string, listener: (...args: any[]) => void): unknown;
+}
+
+/** The settings createBot reads; the full Config satisfies this. */
+export interface BotSettings {
+  maxPromptChars: number;
+  maxHistoryTurns: number;
+}
+
+export interface BotLogger {
+  log(message: string): void;
+  error(message: string): void;
+}
+
+export function splitMessage(text: string, limit = DISCORD_MESSAGE_LIMIT): string[] {
   const normalized = text.trim();
   if (!normalized) return ['The model returned an empty response.'];
   if (normalized.length <= limit) return [normalized];
 
-  const chunks = [];
+  const chunks: string[] = [];
   let remaining = normalized;
 
   while (remaining.length > limit) {
@@ -29,35 +98,41 @@ export function splitMessage(text, limit = DISCORD_MESSAGE_LIMIT) {
   return chunks;
 }
 
-export function startTyping(channel, intervalMs = TYPING_INTERVAL_MS) {
-  if (!channel?.sendTyping) return () => {};
+export function startTyping(
+  channel: TypingChannel | null | undefined,
+  intervalMs = TYPING_INTERVAL_MS,
+): () => void {
+  // Bound so the indicator keeps working from the interval callback and so
+  // the method is still called on the channel.
+  const sendTyping = channel?.sendTyping?.bind(channel);
+  if (!sendTyping) return () => {};
 
-  void channel.sendTyping().catch(() => {});
+  void sendTyping().catch(() => {});
   const timer = setInterval(() => {
-    void channel.sendTyping().catch(() => {});
+    void sendTyping().catch(() => {});
   }, intervalMs);
   timer.unref();
 
   return () => clearInterval(timer);
 }
 
-export function stripBotMention(content, botId) {
+export function stripBotMention(content: string, botId: string | null | undefined): string {
   if (!botId) return content.trim();
   return content.replace(new RegExp(`<@!?${botId}>`, 'g'), ' ').trim();
 }
 
-function messageOf(error) {
-  return error?.message ?? error;
+function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
-export function describeRequestError(error) {
-  if (error?.memoryUnavailable) {
+export function describeRequestError(error: unknown): string {
+  if ((error as { memoryUnavailable?: boolean } | null | undefined)?.memoryUnavailable) {
     return 'Conversation memory is temporarily unavailable. Please try again shortly.';
   }
   return describeDeepSeekError(error);
 }
 
-function buildCommands(settings) {
+function buildCommands(settings: { maxPromptChars: number }) {
   const q = new SlashCommandBuilder()
     .setName('q')
     .setDescription('Pose une question')
@@ -88,18 +163,33 @@ function buildCommands(settings) {
   return { q, memo };
 }
 
-export async function registerCommands(client, settings, logger = console) {
+/** The slice of the Discord client registerCommands needs. */
+export interface CommandClient {
+  guilds: {
+    fetch(
+      id: string,
+    ): Promise<{ name: string; commands: { set(commands: readonly unknown[]): Promise<unknown> } }>;
+  };
+  application: { commands: { set(commands: readonly unknown[]): Promise<unknown> } } | null;
+}
+
+export async function registerCommands(
+  client: CommandClient,
+  settings: { discordGuildId: string | null; maxPromptChars: number },
+  logger: BotLogger = console,
+): Promise<void> {
   const { q, memo } = buildCommands(settings);
 
   try {
     if (settings.discordGuildId) {
       const guild = await client.guilds.fetch(settings.discordGuildId);
       await guild.commands.set([q]);
-      // Global registration is required for /memo to work in DMs.
-      await client.application.commands.set([memo]);
+      // Global registration is required for /memo to work in DMs. After login
+      // the application always exists; commands are registered post-ready.
+      await client.application!.commands.set([memo]);
       logger.log(`Registered /q in ${guild.name} and /memo globally.`);
     } else {
-      await client.application.commands.set([q, memo]);
+      await client.application!.commands.set([q, memo]);
       logger.log(
         'Registered 2 global slash commands (they can take up to an hour to appear).',
       );
@@ -114,8 +204,20 @@ export async function registerCommands(client, settings, logger = console) {
  * injected so the complete conversation flow can be driven in tests without
  * connecting to Discord or DeepSeek.
  */
-export function createBot({ client, memory, settings, ask = askDeepSeek, logger = console }) {
-  const busyConversations = new Set();
+export function createBot({
+  client,
+  memory,
+  settings,
+  ask = askDeepSeek,
+  logger = console,
+}: {
+  client: BotClient;
+  memory: ConversationMemory;
+  settings: BotSettings;
+  ask?: (history: Turn[], prompt: string) => Promise<string>;
+  logger?: BotLogger;
+}) {
+  const busyConversations = new Set<string>();
 
   /**
    * Keep one in-flight request per conversation and keep the lock until the
@@ -127,12 +229,16 @@ export function createBot({ client, memory, settings, ask = askDeepSeek, logger 
    * user opted in. Callers derive both from the event source, never from user
    * input.
    */
-  async function respond({ lockKey, scope, key }, prompt, sendReply) {
+  async function respond(
+    { lockKey, scope, key }: { lockKey: string; scope: MemoryScope; key: string },
+    prompt: string,
+    sendReply: (reply: string) => Promise<unknown>,
+  ): Promise<boolean> {
     if (busyConversations.has(lockKey)) return false;
 
     busyConversations.add(lockKey);
     try {
-      let history;
+      let history: Turn[];
       try {
         history = await memory.getHistory(scope, key);
       } catch (error) {
@@ -155,7 +261,10 @@ export function createBot({ client, memory, settings, ask = askDeepSeek, logger 
   }
 
   /** Show the DM opt-in hint at most once per user. */
-  async function maybeShowDmHint(userId, sendHint) {
+  async function maybeShowDmHint(
+    userId: string,
+    sendHint: (content: string) => Promise<unknown>,
+  ): Promise<void> {
     if (memory.mode !== 'mongo') return;
 
     try {
@@ -167,7 +276,7 @@ export function createBot({ client, memory, settings, ask = askDeepSeek, logger 
     }
   }
 
-  async function handleMemo(interaction) {
+  async function handleMemo(interaction: InteractionLike): Promise<void> {
     if (interaction.inGuild()) {
       await interaction.reply({
         content:
@@ -207,11 +316,11 @@ export function createBot({ client, memory, settings, ask = askDeepSeek, logger 
     }
   }
 
-  async function sendMessageChunks(message, text) {
+  async function sendMessageChunks(message: MessageLike, text: string): Promise<void> {
     const chunks = splitMessage(text);
 
     for (const [index, chunk] of chunks.entries()) {
-      const payload = {
+      const payload: ReplyPayload = {
         content: chunk,
         allowedMentions: { parse: [], repliedUser: false },
       };
@@ -224,15 +333,16 @@ export function createBot({ client, memory, settings, ask = askDeepSeek, logger 
     }
   }
 
-  async function sendInteractionChunks(interaction, text) {
+  async function sendInteractionChunks(interaction: InteractionLike, text: string): Promise<void> {
     const chunks = splitMessage(text);
+    const [first, ...rest] = chunks;
 
     await interaction.editReply({
-      content: chunks.shift(),
+      content: first,
       allowedMentions: { parse: [] },
     });
 
-    for (const chunk of chunks) {
+    for (const chunk of rest) {
       await interaction.followUp({
         content: chunk,
         allowedMentions: { parse: [] },
@@ -240,7 +350,7 @@ export function createBot({ client, memory, settings, ask = askDeepSeek, logger 
     }
   }
 
-  async function handleInteraction(interaction) {
+  async function handleInteraction(interaction: InteractionLike): Promise<void> {
     if (!interaction.isChatInputCommand()) return;
 
     if (interaction.commandName === 'memo') {
@@ -256,8 +366,13 @@ export function createBot({ client, memory, settings, ask = askDeepSeek, logger 
 
     const isDM = !interaction.inGuild();
     const target = isDM
-      ? { lockKey: interaction.user.id, scope: 'dm', key: interaction.user.id }
-      : { lockKey: interaction.channelId, scope: 'channel', key: interaction.channelId };
+      ? { lockKey: interaction.user.id, scope: 'dm' as const, key: interaction.user.id }
+      : {
+          // A guild interaction always carries a channel id.
+          lockKey: interaction.channelId!,
+          scope: 'channel' as const,
+          key: interaction.channelId!,
+        };
 
     try {
       const prompt = interaction.options.getString('prompt', true).trim();
@@ -314,7 +429,7 @@ export function createBot({ client, memory, settings, ask = askDeepSeek, logger 
     }
   }
 
-  async function handleMessage(message) {
+  async function handleMessage(message: MessageLike): Promise<void> {
     if (message.author.bot || message.system) return;
 
     const isDM = message.channel.type === ChannelType.DM;
@@ -322,8 +437,8 @@ export function createBot({ client, memory, settings, ask = askDeepSeek, logger 
     if (!isDM && !mentioned) return;
 
     const target = isDM
-      ? { lockKey: message.author.id, scope: 'dm', key: message.author.id }
-      : { lockKey: message.channelId, scope: 'channel', key: message.channelId };
+      ? { lockKey: message.author.id, scope: 'dm' as const, key: message.author.id }
+      : { lockKey: message.channelId, scope: 'channel' as const, key: message.channelId };
 
     const prompt = stripBotMention(message.content, client.user?.id);
     let stopTyping = () => {};
@@ -376,7 +491,7 @@ export function createBot({ client, memory, settings, ask = askDeepSeek, logger 
 
   client.on(Events.InteractionCreate, handleInteraction);
   client.on(Events.MessageCreate, handleMessage);
-  client.on(Events.Error, (error) => {
+  client.on(Events.Error, (error: Error) => {
     logger.error(`Discord client error: ${messageOf(error)}`);
   });
 

@@ -1,9 +1,40 @@
 import { Client, Events, GatewayIntentBits, Partials } from 'discord.js';
-import { config } from './config.js';
-import { MemoryStore } from './memory.js';
-import { createBot, registerCommands } from './bot.js';
+import { config } from './config.ts';
+import { MemoryStore } from './memory.ts';
+import type { ConversationMemory, MemoryConnectOptions } from './memory.ts';
+import { createBot, registerCommands } from './bot.ts';
+import type { BotClient, BotLogger } from './bot.ts';
 
-export function createDefaultClient() {
+/** The configuration values start() reads; the full Config satisfies this. */
+export interface StartupConfig {
+  discordToken: string;
+  discordGuildId: string | null;
+  deepseekModel: string;
+  deepseekBaseUrl: string;
+  deepseekThinking: string;
+  deepseekEffort: string;
+  maxHistoryTurns: number;
+  maxPromptChars: number;
+  mongodbUri: string | null;
+  mongodbDb: string;
+  mongodbTimeoutMs: number;
+  memoryTtlDays: number | null;
+}
+
+/** The slice of the Discord client the startup flow needs. */
+export interface StartupClient {
+  once(event: string, listener: (...args: any[]) => void): unknown;
+  login(token: string): Promise<unknown>;
+  destroy(): void;
+}
+
+/** The slice of process installShutdownHandlers needs. */
+export interface ProcessLike {
+  on(event: string, listener: (...args: any[]) => void): unknown;
+  exit(code: number): void;
+}
+
+export function createDefaultClient(): Client {
   return new Client({
     intents: [
       GatewayIntentBits.Guilds,
@@ -19,10 +50,20 @@ export function createDefaultClient() {
  * Register SIGINT/SIGTERM handlers that destroy the client and close MongoDB
  * exactly once, even when the two signals arrive together.
  */
-export function installShutdownHandlers({ client, memory, logger = console, processRef = process }) {
+export function installShutdownHandlers({
+  client,
+  memory,
+  logger = console,
+  processRef = process,
+}: {
+  client: { destroy(): void };
+  memory: { close(): Promise<void> };
+  logger?: BotLogger;
+  processRef?: ProcessLike;
+}): (signal: string) => Promise<boolean> {
   let shuttingDown = false;
 
-  const shutdown = async (signal) => {
+  const shutdown = async (signal: string): Promise<boolean> => {
     if (shuttingDown) return false;
     shuttingDown = true;
     logger.log(`Received ${signal}; shutting down.`);
@@ -54,6 +95,12 @@ export async function start({
   connectMemory = MemoryStore.connect,
   logger = console,
   processRef = process,
+}: {
+  appConfig?: StartupConfig;
+  createClient?: () => BotClient & StartupClient;
+  connectMemory?: (options: MemoryConnectOptions) => Promise<ConversationMemory>;
+  logger?: BotLogger;
+  processRef?: ProcessLike;
 } = {}) {
   const memory = await connectMemory({
     uri: appConfig.mongodbUri,
@@ -66,7 +113,7 @@ export async function start({
   const client = createClient();
   createBot({ client, memory, settings: appConfig, logger });
 
-  const ready = new Promise((resolve) => {
+  const ready = new Promise<void>((resolve) => {
     client.once(Events.ClientReady, async (readyClient) => {
       logger.log(`Logged in as ${readyClient.user.tag}.`);
       logger.log(

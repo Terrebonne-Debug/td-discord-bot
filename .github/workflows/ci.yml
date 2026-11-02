@@ -31,7 +31,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Check source syntax
+      - name: Typecheck sources and tests
         run: npm run check
 
   tests:

@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { parseConfig } from '../../src/config.js';
+import { parseConfig } from '../../src/config.ts';
 
-function baseEnv(overrides = {}) {
+function baseEnv(overrides: Record<string, string> = {}): Record<string, string> {
   return {
     DISCORD_TOKEN: 'discord-token',
     DEEPSEEK_API_KEY: 'deepseek-key',
