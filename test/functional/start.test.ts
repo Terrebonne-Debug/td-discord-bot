@@ -35,6 +35,8 @@ function appConfig(overrides: Partial<StartupConfig> = {}): StartupConfig {
     memoryTtlDays: 7,
     memoryEncryptionKey: 'e'.repeat(64),
     logLevel: 'info',
+    githubToken: 'gh-token',
+    githubRepository: 'Terrebonne-Debug/td-discord-bot',
     ...overrides,
   };
 }
@@ -135,10 +137,10 @@ test('start connects MongoDB, logs settings and registers the commands', async (
     'Logged in as TestBot#0001.',
     'DeepSeek: model=deepseek-v4-flash base=http://127.0.0.1:9999 thinking=enabled effort=max',
     'Memory: MongoDB db=test-db ttl=7d.',
-    'Registered /q in Guild Name.',
+    'Registered 5 slash commands in Guild Name.',
   ]);
   assert.equal(client.globalCommands.length, 0);
-  assert.equal(client.guildCommands.length, 1);
+  assert.equal(client.guildCommands.length, 5);
   assert.equal(client.guildCommands[0].name, 'q');
 
   processRef.emit('SIGINT');
@@ -185,11 +187,11 @@ test('start logs the in-RAM fallback when MongoDB is unavailable', async () => {
     'Logged in as TestBot#0001.',
     'DeepSeek: model=deepseek-v4-flash base=http://127.0.0.1:9999 thinking=disabled',
     'Memory: in-RAM fallback (lost on restart).',
-    'Registered 1 global slash command (it can take up to an hour to appear).',
+    'Registered 5 global slash commands (they can take up to an hour to appear).',
   ]);
   assert.deepEqual(
     client.globalCommands.map((command) => command.name),
-    ['q'],
+    ['q', 'version', 'aide', 'help', 'feature-request'],
   );
 });
 

@@ -142,6 +142,7 @@ export function createFakeInteraction({
   guildId = null,
   channelId = 'channel-1',
   userId = 'user-1',
+  username = 'alice',
   channel = null,
   chatInput = true,
   failures = {},
@@ -151,6 +152,7 @@ export function createFakeInteraction({
   guildId?: string | null;
   channelId?: string | null;
   userId?: string;
+  username?: string;
   channel?: TypingChannel | null;
   chatInput?: boolean;
   failures?: Record<string, number>;
@@ -162,14 +164,17 @@ export function createFakeInteraction({
     commandName,
     channelId,
     channel,
-    user: { id: userId },
+    user: { id: userId, username },
     deferred: false,
     replied: false,
     calls,
     inGuild: () => Boolean(guildId),
     isChatInputCommand: () => chatInput,
     options: {
-      getString: () => prompt,
+      getString: () => {
+        fail('getString');
+        return prompt;
+      },
     },
     async reply(payload) {
       calls.push({ method: 'reply', payload });

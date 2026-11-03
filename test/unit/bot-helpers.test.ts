@@ -105,7 +105,9 @@ test('startTyping swallows sendTyping failures', async () => {
   await delay(5);
 });
 
-test('registerCommands registers /q in the guild only', async () => {
+const COMMAND_NAMES = ['q', 'version', 'aide', 'help', 'feature-request'];
+
+test('registerCommands registers every command in the guild only', async () => {
   const client = createFakeClient();
   const logger = createLogger();
   const settings = {
@@ -116,13 +118,16 @@ test('registerCommands registers /q in the guild only', async () => {
   await registerCommands(client, settings, logger);
 
   assert.equal(client.fetchedGuildId, 'guild-1');
-  assert.equal(client.guildCommands.length, 1);
-  assert.equal(client.guildCommands[0].name, 'q');
+  assert.equal(client.guildCommands.length, 5);
+  assert.deepEqual(
+    client.guildCommands.map((command) => command.name),
+    COMMAND_NAMES,
+  );
   assert.equal(client.globalCommands.length, 0);
-  assert.match(logger.messages('info')[0], /Registered \/q in Guild Name\./);
+  assert.match(logger.messages('info')[0], /Registered 5 slash commands in Guild Name\./);
 });
 
-test('registerCommands registers /q globally without a guild id', async () => {
+test('registerCommands registers every command globally without a guild id', async () => {
   const client = createFakeClient();
   const logger = createLogger();
   const settings = {
@@ -135,10 +140,10 @@ test('registerCommands registers /q globally without a guild id', async () => {
   assert.equal(client.fetchedGuildId, undefined);
   assert.deepEqual(
     client.globalCommands.map((command) => command.name),
-    ['q'],
+    COMMAND_NAMES,
   );
   assert.equal(client.globalCommands[0].options[0].max_length, 6000);
-  assert.match(logger.messages('info')[0], /1 global slash command/);
+  assert.match(logger.messages('info')[0], /5 global slash commands/);
 });
 
 test('registerCommands logs instead of throwing when Discord rejects the update', async () => {

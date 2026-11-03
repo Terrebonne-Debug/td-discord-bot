@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import test from 'node:test';
 import { ChannelType, Events, MessageFlags } from 'discord.js';
-import { createBot } from '../../src/bot.ts';
+import { createBot, createIssueFor } from '../../src/bot.ts';
 import type { BotSettings } from '../../src/bot.ts';
 import type { Turn } from '../../src/types.ts';
 import {
@@ -17,6 +17,8 @@ import type { FakeClient, FakeMemory } from '../helpers/fakes.ts';
 
 const settings: BotSettings = {
   maxPromptChars: 50,
+  githubToken: 'gh-token',
+  githubRepository: 'Terrebonne-Debug/td-discord-bot',
 };
 
 const memoOn = MessageFlags.Ephemeral;
@@ -26,13 +28,27 @@ function setup({
   memory = createFakeMemory(),
   ask = async () => 'reply',
   client = createFakeClient(),
+  buildInfo = { version: '1.0.0', commit: 'abc1234' },
+  createIssue = async () => 'https://github.com/owner/repo/issues/1',
+  botSettings = settings,
 }: {
   memory?: FakeMemory;
   ask?: (history: Turn[], prompt: string) => Promise<string>;
   client?: FakeClient;
+  buildInfo?: { version: string; commit: string };
+  createIssue?: (title: string, body: string) => Promise<string>;
+  botSettings?: BotSettings;
 } = {}) {
   const logger = createLogger();
-  const bot = createBot({ client, memory, settings, ask, logger });
+  const bot = createBot({
+    client,
+    memory,
+    settings: botSettings,
+    ask,
+    buildInfo,
+    createIssue,
+    logger,
+  });
   return { bot, memory, logger, client };
 }
 
@@ -124,6 +140,199 @@ test('/q in a DM answers without reading or storing any memory', async () => {
   );
   assert.equal(interaction.calls.at(-1)?.method, 'editReply');
   assert.equal(interaction.calls.at(-1)?.payload?.content, 'private answer');
+});
+
+test('/version replies with the version and the last commit', async () => {
+  const { bot } = setup({ buildInfo: { version: '1.2.3', commit: 'deadbeef' } });
+
+  const interaction = createFakeInteraction({ commandName: 'version' });
+  await bot.handleInteraction(interaction);
+
+  assert.equal(interaction.calls.length, 1);
+  assert.equal(interaction.calls[0].method, 'reply');
+  assert.match(interaction.calls[0].payload?.content ?? '', /1\.2\.3/);
+  assert.match(interaction.calls[0].payload?.content ?? '', /deadbeef/);
+});
+
+test('/aide and /help reply with exactly the same command list', async () => {
+  const { bot } = setup();
+
+  const aide = createFakeInteraction({ commandName: 'aide' });
+  await bot.handleInteraction(aide);
+  const help = createFakeInteraction({ commandName: 'help' });
+  await bot.handleInteraction(help);
+
+  const aideContent = aide.calls[0].payload?.content ?? '';
+  const helpContent = help.calls[0].payload?.content ?? '';
+
+  assert.equal(aideContent, helpContent);
+  assert.match(aideContent, /\/q/);
+  assert.match(aideContent, /\/version/);
+  assert.match(aideContent, /\/aide/);
+  assert.match(aideContent, /\/feature-request/);
+  assert.equal(aideContent.includes('`/help` (alias'), false, 'pas de ligne /help séparée');
+});
+
+test('/feature-request creates a GitHub issue and replies with its URL', async () => {
+  const issues: Array<{ title: string; body: string }> = [];
+  const { bot, logger } = setup({
+    createIssue: async (title, body) => {
+      issues.push({ title, body });
+      return 'https://github.com/owner/repo/issues/7';
+    },
+  });
+
+  const interaction = createFakeInteraction({
+    commandName: 'feature-request',
+    prompt: 'Ajouter un système de sondages',
+  });
+  await bot.handleInteraction(interaction);
+
+  assert.deepEqual(interaction.calls.map((call) => call.method), ['deferReply', 'editReply']);
+  assert.equal(
+    interaction.calls[1].payload?.content,
+    'Demande créée : https://github.com/owner/repo/issues/7',
+  );
+  assert.deepEqual(issues, [
+    {
+      title: 'Ajouter un système de sondages',
+      body: '**Demande**\n\nAjouter un système de sondages\n\n---\nDemandé depuis Discord par alice.',
+    },
+  ]);
+  assert.match(logger.messages('info')[0], /Issue de demande créée/);
+});
+
+test('/feature-request truncates titles beyond 200 characters', async () => {
+  const issues: Array<{ title: string; body: string }> = [];
+  const { bot } = setup({
+    createIssue: async (title, body) => {
+      issues.push({ title, body });
+      return 'url';
+    },
+  });
+
+  const texte = 'x'.repeat(300);
+  await bot.handleInteraction(createFakeInteraction({ commandName: 'feature-request', prompt: texte }));
+
+  assert.equal(issues[0].title.length, 200);
+  assert.equal(issues[0].title.endsWith('…'), true);
+  assert.equal(issues[0].body.includes(texte), true);
+});
+
+test('/feature-request replies it is not configured without a GitHub token', async () => {
+  const issues: string[] = [];
+  const { bot } = setup({
+    botSettings: { ...settings, githubToken: null },
+    createIssue: async () => {
+      issues.push('appelé');
+      return 'url';
+    },
+  });
+
+  const interaction = createFakeInteraction({
+    commandName: 'feature-request',
+    prompt: 'Une idée',
+  });
+  await bot.handleInteraction(interaction);
+
+  assert.equal(interaction.calls.length, 1);
+  assert.match(interaction.calls[0].payload?.content ?? '', /GITHUB_TOKEN manquant/);
+  assert.equal(interaction.calls[0].payload?.flags, MessageFlags.Ephemeral);
+  assert.deepEqual(issues, []);
+});
+
+test('/feature-request rejects an empty text', async () => {
+  const issues: string[] = [];
+  const { bot } = setup({
+    createIssue: async () => {
+      issues.push('appelé');
+      return 'url';
+    },
+  });
+
+  const interaction = createFakeInteraction({ commandName: 'feature-request', prompt: '   ' });
+  await bot.handleInteraction(interaction);
+
+  assert.equal(interaction.calls.length, 1);
+  assert.equal(interaction.calls[0].payload?.content, 'Décris la fonctionnalité souhaitée.');
+  assert.deepEqual(issues, []);
+});
+
+test('/feature-request handler failures are logged instead of crashing', async () => {
+  const { bot, logger } = setup();
+
+  const interaction = createFakeInteraction({
+    commandName: 'feature-request',
+    failures: { getString: 1 },
+  });
+  await bot.handleInteraction(interaction);
+
+  assert.match(logger.messages('error')[0], /Failed to handle \/feature-request/);
+});
+
+test('createIssueFor posts through the configured token and repository', async () => {
+  const calls: Array<{ url: string; token: string; body: string }> = [];
+  const fetchFn = async (input: string | Request | URL, init: RequestInit = {}) => {
+    calls.push({
+      url: String(input),
+      token: (init.headers as Record<string, string>).Authorization?.replace('Bearer ', '') ?? '',
+      body: init.body as string,
+    });
+    return {
+      ok: true,
+      status: 201,
+      json: async () => ({ html_url: 'https://github.com/x/y/issues/1' }),
+    } as Response;
+  };
+
+  const createIssue = createIssueFor(settings, fetchFn);
+  const url = await createIssue('titre', 'corps');
+
+  assert.equal(url, 'https://github.com/x/y/issues/1');
+  assert.equal(calls[0].token, 'gh-token');
+  assert.equal(calls[0].url, 'https://api.github.com/repos/Terrebonne-Debug/td-discord-bot/issues');
+  assert.deepEqual(JSON.parse(calls[0].body), { title: 'titre', body: 'corps' });
+});
+
+test('createIssueFor throws without a GitHub token', () => {
+  const createIssue = createIssueFor({ ...settings, githubToken: null });
+
+  assert.throws(() => createIssue('titre', 'corps'), /GITHUB_TOKEN is not set/);
+});
+
+test('/feature-request tolerates a failure of the error reply itself', async () => {
+  const { bot, logger } = setup({
+    createIssue: async () => {
+      throw new Error('api down');
+    },
+  });
+
+  const interaction = createFakeInteraction({
+    commandName: 'feature-request',
+    prompt: 'Une idée',
+    failures: { editReply: 1 },
+  });
+
+  await assert.doesNotReject(bot.handleInteraction(interaction));
+  assert.match(logger.messages('error')[0], /Could not create the feature request issue/);
+});
+
+test('/feature-request reports a creation failure', async () => {
+  const { bot, logger } = setup({
+    createIssue: async () => {
+      throw new Error('api down');
+    },
+  });
+
+  const interaction = createFakeInteraction({
+    commandName: 'feature-request',
+    prompt: 'Une idée',
+  });
+  await bot.handleInteraction(interaction);
+
+  assert.match(logger.messages('error')[0], /Could not create the feature request issue: api down/);
+  assert.equal(interaction.calls.at(-1)?.method, 'editReply');
+  assert.match(interaction.calls.at(-1)?.payload?.content ?? '', /Impossible de créer la demande/);
 });
 
 test('non-Error failures are logged without crashing', async () => {

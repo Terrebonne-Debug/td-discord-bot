@@ -25,6 +25,8 @@ const settings: DeepSeekSettings & {
   maxHistoryTurns: number;
   maxPromptChars: number;
   discordGuildId: string;
+  githubToken: string;
+  githubRepository: string;
 } = {
   deepseekModel: 'deepseek-v4-flash',
   deepseekMaxTokens: 512,
@@ -35,6 +37,8 @@ const settings: DeepSeekSettings & {
   maxHistoryTurns: 2,
   maxPromptChars: 4000,
   discordGuildId: 'guild-1',
+  githubToken: 'gh-token',
+  githubRepository: 'Terrebonne-Debug/td-discord-bot',
 };
 
 function makeClient(discord: FakeDiscord): Client {
@@ -82,7 +86,19 @@ test(
         const ask = (history: Turn[], prompt: string) =>
           askDeepSeek(history, prompt, anthropic, settings);
 
-        createBot({ client, memory, settings, ask, logger });
+        const issues: Array<{ title: string; body: string }> = [];
+        createBot({
+          client,
+          memory,
+          settings,
+          ask,
+          buildInfo: { version: '9.9.9', commit: 'abc1234' },
+          createIssue: async (title, body) => {
+            issues.push({ title, body });
+            return 'https://github.com/owner/repo/issues/7';
+          },
+          logger,
+        });
 
         const ready = once(client, Events.ClientReady);
         await client.login('test-discord-token');
@@ -96,7 +112,7 @@ test(
           );
           assert.deepEqual(
             guildCommands.body.map((command: Record<string, any>) => command.name),
-            ['q'],
+            ['q', 'version', 'aide', 'help', 'feature-request'],
           );
 
           // ---- Public channel: shared memory ------------------------------
@@ -249,6 +265,44 @@ test(
               request.body.content === 'echo: slash question',
           );
           assert.deepEqual(slashAnswer.body.allowed_mentions, { parse: [] });
+
+          // ---- /version and /feature-request ------------------------------
+          discord.dispatchCommand({
+            interactionId: 'interaction-version',
+            commandName: 'version',
+          });
+          const versionReply = await discord.waitForRequest(
+            (request) =>
+              request.kind === 'interactionCallback' &&
+              request.interactionId === 'interaction-version',
+          );
+          assert.match(versionReply.body.data.content, /9\.9\.9/);
+          assert.match(versionReply.body.data.content, /abc1234/);
+
+          discord.dispatchCommand({
+            interactionId: 'interaction-feature',
+            commandName: 'feature-request',
+            options: [{ name: 'texte', type: 3, value: 'Un mode quiz' }],
+          });
+          const featureDeferred = await discord.waitForRequest(
+            (request) =>
+              request.kind === 'interactionCallback' &&
+              request.interactionId === 'interaction-feature',
+          );
+          assert.equal(featureDeferred.body.type, 5);
+
+          await discord.waitForRequest(
+            (request) =>
+              request.kind === 'editReply' &&
+              request.body.content ===
+                'Demande créée : https://github.com/owner/repo/issues/7',
+          );
+          assert.deepEqual(issues, [
+            {
+              title: 'Un mode quiz',
+              body: '**Demande**\n\nUn mode quiz\n\n---\nDemandé depuis Discord par Alice.',
+            },
+          ]);
 
           // Channel memory was never touched by the DM flows.
           assert.equal(

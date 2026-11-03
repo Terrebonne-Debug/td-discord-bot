@@ -36,6 +36,8 @@ test('parseConfig applies every default', () => {
   assert.equal(config.logFileEnabled, true);
   assert.equal(config.logMaxSizeMb, 10);
   assert.equal(config.logRetentionDays, 14);
+  assert.equal(config.githubToken, null);
+  assert.equal(config.githubRepository, 'Terrebonne-Debug/td-discord-bot');
   assert.ok(Object.isFrozen(config));
 });
 
@@ -64,6 +66,8 @@ test('parseConfig trims values, lowercases enums and parses every override', () 
     LOG_FILE_ENABLED: 'false',
     LOG_MAX_SIZE_MB: '5',
     LOG_RETENTION_DAYS: '30',
+    GITHUB_TOKEN: 'ghp_test',
+    GITHUB_REPOSITORY: 'owner/custom-repo',
   });
 
   assert.equal(config.discordToken, 'discord-token');
@@ -88,6 +92,8 @@ test('parseConfig trims values, lowercases enums and parses every override', () 
   assert.equal(config.logFileEnabled, false);
   assert.equal(config.logMaxSizeMb, 5);
   assert.equal(config.logRetentionDays, 30);
+  assert.equal(config.githubToken, 'ghp_test');
+  assert.equal(config.githubRepository, 'owner/custom-repo');
 });
 
 test('parseConfig rejects missing and placeholder required variables', () => {
