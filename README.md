@@ -226,7 +226,11 @@ portant les étiquettes `self-hosted`, `Linux`, `X64` et `discord-bot`
 (`npm ci`, `npm run check`), puis les tests complets avec un conteneur
 MongoDB isolé sur `127.0.0.1:27018` et des seuils de couverture à 100 %
 (lignes, fonctions et branches) sur `src/**`, hors `src/index.ts` (simple
-point d'entrée).
+point d'entrée). En parallèle, un job balaye les dépendances du
+`package-lock.json` avec [osv-scanner](https://google.github.io/osv-scanner/)
+(image `ghcr.io/google/osv-scanner`, version épinglée) : toute vulnérabilité
+connue (CVE/GHSA) fait échouer la CI, sauf exception déclarée dans un
+`osv-scanner.toml` à la racine.
 
 ## Dépannage
 
