@@ -1,5 +1,7 @@
 import { MongoClient } from 'mongodb';
 import type { Collection, Db } from 'mongodb';
+import { decryptTurn, encryptTurn, isEncryptedTurn } from './crypto.ts';
+import type { EncryptedTurn } from './crypto.ts';
 import { createConsoleLogger } from './logging.ts';
 import type { BotLogger } from './logging.ts';
 import type { MemoryMode, Turn } from './types.ts';
@@ -21,6 +23,7 @@ export interface MemoryConnectOptions {
   timeoutMs: number;
   maxHistoryTurns: number;
   ttlDays?: number | null;
+  encryptionKey?: Buffer | null;
   logger?: BotLogger;
 }
 
@@ -75,9 +78,42 @@ async function ensureTtlIndexes(db: Db, ttlDays: number | null, logger: BotLogge
 /** A document in channel_memories. */
 interface MemoryDocument {
   _id: string;
-  turns?: Turn[];
+  turns?: Array<Turn | EncryptedTurn>;
   createdAt?: Date;
   updatedAt?: Date;
+}
+
+/**
+ * Decrypts the encrypted entries of a stored history. Legacy plaintext
+ * entries pass through untouched (normalizeTurns validates them later); an
+ * encrypted entry that cannot be decrypted is skipped with a warning so a
+ * broken record never fails the conversation.
+ */
+function decryptTurns(
+  turns: Array<Turn | EncryptedTurn> | undefined,
+  encryptionKey: Buffer | null,
+  aad: string,
+  logger: BotLogger,
+): Array<Turn | EncryptedTurn> {
+  if (!turns) return [];
+
+  const decrypted: Array<Turn | EncryptedTurn> = [];
+  for (const turn of turns) {
+    if (isEncryptedTurn(turn)) {
+      if (!encryptionKey) {
+        logger.warn(`Encrypted turn skipped: no MEMORY_ENCRYPTION_KEY configured (key ${aad}).`);
+        continue;
+      }
+      try {
+        decrypted.push(decryptTurn(turn, encryptionKey, aad));
+      } catch {
+        logger.warn(`Encrypted turn skipped: decryption failed (key ${aad}).`);
+      }
+      continue;
+    }
+    decrypted.push(turn);
+  }
+  return decrypted;
 }
 
 /**
@@ -91,16 +127,19 @@ export class MemoryStore implements ConversationMemory {
   #channels: Map<string, Turn[]>;
   #mode: MemoryMode;
   #logger: BotLogger;
+  #encryptionKey: Buffer | null;
 
   constructor({
     client = null,
     db = null,
     maxHistoryTurns,
+    encryptionKey = null,
     logger = createConsoleLogger(),
   }: {
     client?: Closeable | null;
     db?: Db | null;
     maxHistoryTurns: number;
+    encryptionKey?: Buffer | null;
     logger?: BotLogger;
   }) {
     this.#client = client;
@@ -109,6 +148,7 @@ export class MemoryStore implements ConversationMemory {
     this.#channels = new Map();
     this.#mode = db ? 'mongo' : 'memory';
     this.#logger = logger;
+    this.#encryptionKey = encryptionKey;
   }
 
   get mode(): MemoryMode {
@@ -121,6 +161,7 @@ export class MemoryStore implements ConversationMemory {
     timeoutMs,
     maxHistoryTurns,
     ttlDays = null,
+    encryptionKey = null,
     logger = createConsoleLogger(),
   }: MemoryConnectOptions): Promise<MemoryStore> {
     if (!uri) {
@@ -145,7 +186,10 @@ export class MemoryStore implements ConversationMemory {
         ms: Math.round(performance.now() - startedAt),
       });
       await ensureTtlIndexes(db, ttlDays, logger);
-      return new MemoryStore({ client, db, maxHistoryTurns, logger });
+      if (!encryptionKey) {
+        logger.warn('MEMORY_ENCRYPTION_KEY is not set; channel memory is stored in plaintext.');
+      }
+      return new MemoryStore({ client, db, maxHistoryTurns, encryptionKey, logger });
     } catch (error) {
       logger.warn(
         `MongoDB is unavailable (${error}); ` +
@@ -171,7 +215,9 @@ export class MemoryStore implements ConversationMemory {
       { _id: key },
       { projection: { turns: { $slice: -this.#maxMessages } } },
     );
-    const history = normalizeTurns(doc?.turns);
+    const history = normalizeTurns(
+      decryptTurns(doc?.turns, this.#encryptionKey, key, this.#logger),
+    );
     this.#logger.debug('Historique lu', {
       key,
       mode: this.#mode,
@@ -181,18 +227,27 @@ export class MemoryStore implements ConversationMemory {
   }
 
   async appendTurn(key: string, prompt: string, reply: string): Promise<boolean> {
-    const turn: Turn[] = [
-      { role: 'user', content: prompt },
-      { role: 'assistant', content: reply },
-    ];
-
     if (this.#mode === 'memory') {
+      const turn: Turn[] = [
+        { role: 'user', content: prompt },
+        { role: 'assistant', content: reply },
+      ];
       const history = [...(this.#channels.get(key) ?? []), ...turn];
       if (history.length > this.#maxMessages) {
         history.splice(0, history.length - this.#maxMessages);
       }
       this.#channels.set(key, history);
     } else {
+      const turn: Array<Turn | EncryptedTurn> = this.#encryptionKey
+        ? [
+            encryptTurn('user', prompt, this.#encryptionKey, key),
+            encryptTurn('assistant', reply, this.#encryptionKey, key),
+          ]
+        : [
+            { role: 'user', content: prompt },
+            { role: 'assistant', content: reply },
+          ];
+
       await this.#collection().updateOne(
         { _id: key },
         {
