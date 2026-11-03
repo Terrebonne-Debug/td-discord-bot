@@ -108,6 +108,9 @@ La mémoire est stockée dans MongoDB et survit aux redémarrages du bot.
 - **Canaux publics** : chaque canal a une mémoire partagée par tous ses
   membres et toujours active, dans la collection `channel_memories`, indexée
   par identifiant de canal.
+- **Expiration** : un canal inactif voit sa mémoire supprimée
+  `MEMORY_TTL_DAYS` jours après sa dernière activité (30 jours par défaut) —
+  l'historique ne dépasse donc jamais cette durée.
 - **Messages privés** : le bot répond en MP **sans rien mémoriser** — aucun
   échange privé n'est enregistré ni lu en base de données.
 
@@ -149,7 +152,7 @@ Lire une archive : `zcat logs/bot-2026-11-02.log.1.gz`.
 | `MONGODB_URI` | vide | URI MongoDB. Vide ou connexion impossible : mémoire volatile (perdue au redémarrage) |
 | `MONGODB_DB` | `td-discord-bot` | Nom de la base MongoDB |
 | `MONGODB_TIMEOUT_MS` | `5000` | Délai de sélection du serveur MongoDB |
-| `MEMORY_TTL_DAYS` | vide | Supprime les mémoires inactives après N jours. Vide : conservation illimitée |
+| `MEMORY_TTL_DAYS` | `30` | Supprime les mémoires de canaux N jours après leur dernière activité |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn` ou `error` |
 | `LOG_DIR` | `./logs` | Dossier des fichiers journalisés |
 | `LOG_FILE_ENABLED` | `true` | Active la sortie fichier (rotation + archives) |

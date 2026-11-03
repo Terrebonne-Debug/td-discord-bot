@@ -147,7 +147,9 @@ export function parseConfig(env: NodeJS.ProcessEnv = process.env): Readonly<Conf
     mongodbUri: optional(env, 'MONGODB_URI', '') || null,
     mongodbDb: optional(env, 'MONGODB_DB', 'td-discord-bot'),
     mongodbTimeoutMs: positiveInt(env, 'MONGODB_TIMEOUT_MS', 5000),
-    memoryTtlDays: optionalPositiveInt(env, 'MEMORY_TTL_DAYS'),
+    // Channel history always expires: 30 days after its last update by
+    // default, MEMORY_TTL_DAYS overrides.
+    memoryTtlDays: optionalPositiveInt(env, 'MEMORY_TTL_DAYS') ?? 30,
 
     logLevel,
     logDir: optional(env, 'LOG_DIR', './logs'),

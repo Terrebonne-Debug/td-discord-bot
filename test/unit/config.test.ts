@@ -29,7 +29,7 @@ test('parseConfig applies every default', () => {
   assert.equal(config.mongodbUri, null);
   assert.equal(config.mongodbDb, 'td-discord-bot');
   assert.equal(config.mongodbTimeoutMs, 5000);
-  assert.equal(config.memoryTtlDays, null);
+  assert.equal(config.memoryTtlDays, 30);
   assert.equal(config.logLevel, 'info');
   assert.equal(config.logDir, './logs');
   assert.equal(config.logFileEnabled, true);
