@@ -37,6 +37,9 @@ export interface Config {
   logFileEnabled: boolean;
   logMaxSizeMb: number;
   logRetentionDays: number;
+
+  githubToken: string | null;
+  githubRepository: string;
 }
 
 function required(env: NodeJS.ProcessEnv, name: string): string {
@@ -159,6 +162,11 @@ export function parseConfig(env: NodeJS.ProcessEnv = process.env): Readonly<Conf
     logFileEnabled: optionalBoolean(env, 'LOG_FILE_ENABLED', true),
     logMaxSizeMb: positiveInt(env, 'LOG_MAX_SIZE_MB', 10),
     logRetentionDays: positiveInt(env, 'LOG_RETENTION_DAYS', 14),
+
+    // GitHub issue creation (/feature-request). Without a token the command
+    // answers that it is not configured.
+    githubToken: optional(env, 'GITHUB_TOKEN', '') || null,
+    githubRepository: optional(env, 'GITHUB_REPOSITORY', 'Terrebonne-Debug/td-discord-bot'),
   });
 }
 
