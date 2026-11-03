@@ -110,6 +110,21 @@ La mémoire est stockée dans MongoDB et survit aux redémarrages du bot.
   par identifiant de canal.
 - **Messages privés** : le bot répond en MP **sans rien mémoriser** — aucun
   échange privé n'est enregistré ni lu en base de données.
+- **Chiffrement au repos** : avec `MEMORY_ENCRYPTION_KEY` définie, chaque
+  entrée est scellée en AES-256-GCM (clé de 32 octets hors de la BD, données
+  authentifiées liées au canal) : un accès en lecture à la base ne montre que
+  de l'hexadécimal. Sans la clé, la mémoire reste en clair et un avertissement
+  est journalisé au démarrage. Les entrées en clair antérieures restent
+  lisibles ; les nouvelles sont chiffrées et les anciennes sortent d'elles-mêmes
+  par la rotation des `MAX_HISTORY_TURNS`.
+
+  Générer la clé : `openssl rand -hex 32`, puis la reporter dans `.env`.
+  **Changer la clé rend les entrées existantes illisibles** : elles sont alors
+  ignorées (avec un avertissement) jusqu'à leur rotation naturelle, à moins de
+  les ré-encrypter à la main.
+
+  Pour lire ce que le bot retient d'un canal (avec la clé) :
+  `node scripts/decrypt-memory.ts <channelId>`.
 
 Si MongoDB est injoignable au démarrage, le bot continue avec une mémoire
 volatile (perdue au redémarrage).
@@ -150,6 +165,7 @@ Lire une archive : `zcat logs/bot-2026-11-02.log.1.gz`.
 | `MONGODB_DB` | `td-discord-bot` | Nom de la base MongoDB |
 | `MONGODB_TIMEOUT_MS` | `5000` | Délai de sélection du serveur MongoDB |
 | `MEMORY_TTL_DAYS` | vide | Supprime les mémoires inactives après N jours. Vide : conservation illimitée |
+| `MEMORY_ENCRYPTION_KEY` | vide | 64 caractères hexadécimaux (32 octets) chiffrant la mémoire au repos. Vide : mémoire en clair, avec avertissement |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn` ou `error` |
 | `LOG_DIR` | `./logs` | Dossier des fichiers journalisés |
 | `LOG_FILE_ENABLED` | `true` | Active la sortie fichier (rotation + archives) |
