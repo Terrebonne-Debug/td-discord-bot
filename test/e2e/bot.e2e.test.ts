@@ -8,6 +8,7 @@ import {
   Partials,
 } from 'discord.js';
 import { createBot, registerCommands } from '../../src/bot.ts';
+import { parseMemoryKey } from '../../src/crypto.ts';
 import { askDeepSeek, createDeepSeekClient } from '../../src/deepseek.ts';
 import type { DeepSeekSettings } from '../../src/deepseek.ts';
 import { MemoryStore } from '../../src/memory.ts';
@@ -17,6 +18,8 @@ import { startFakeDiscord } from '../helpers/fake-discord-server.ts';
 import type { FakeDiscord } from '../helpers/fake-discord-server.ts';
 import { createLogger } from '../helpers/fakes.ts';
 import { collection, TEST_MONGODB_URI, withMongo } from '../helpers/mongo.ts';
+
+const TEST_KEY = parseMemoryKey('ab'.repeat(32))!;
 
 const settings: DeepSeekSettings & {
   maxHistoryTurns: number;
@@ -66,6 +69,7 @@ test(
           timeoutMs: 5_000,
           maxHistoryTurns: 2,
           ttlDays: null,
+          encryptionKey: TEST_KEY,
         });
         assert.equal(memory.mode, 'mongo');
 
@@ -128,22 +132,20 @@ test(
             { role: 'user', content: 'second question' },
           ]);
 
-          // The channel history is really in MongoDB, not just in a Map.
+          // The channel history is really in MongoDB — encrypted at rest.
           const channelDoc = await collection(db, 'channel_memories').findOne({
             _id: discord.guildChannelId,
           });
           assert.ok(channelDoc);
-          assert.deepEqual(
-            channelDoc.turns.map(
-              ({ role, content }: Record<string, any>) => ({ role, content }),
-            ),
-            [
-              { role: 'user', content: 'first question' },
-              { role: 'assistant', content: 'echo: first question' },
-              { role: 'user', content: 'second question' },
-              { role: 'assistant', content: 'echo: second question' },
-            ],
-          );
+          const raw = JSON.stringify(channelDoc.turns);
+          assert.equal(raw.includes('first question'), false, 'aucun prompt en clair');
+          assert.equal(raw.includes('second question'), false, 'aucun prompt en clair');
+          assert.equal(channelDoc.turns.length, 4);
+          for (const turn of channelDoc.turns) {
+            assert.equal(typeof turn.iv, 'string');
+            assert.equal(typeof turn.ciphertext, 'string');
+            assert.equal(typeof turn.authTag, 'string');
+          }
 
           // ---- DM: answered, but nothing is ever stored -------------------
           discord.dispatchMessage(
@@ -199,6 +201,7 @@ test(
             timeoutMs: 5_000,
             maxHistoryTurns: 2,
             ttlDays: null,
+            encryptionKey: TEST_KEY,
           });
           try {
             assert.deepEqual(await freshMemory.getHistory(discord.guildChannelId), [
@@ -209,6 +212,22 @@ test(
             ]);
           } finally {
             await freshMemory.close();
+          }
+
+          // With another key, the stored history is unreadable.
+          const wrongKeyMemory = await MemoryStore.connect({
+            uri: TEST_MONGODB_URI,
+            dbName,
+            timeoutMs: 5_000,
+            maxHistoryTurns: 2,
+            ttlDays: null,
+            encryptionKey: parseMemoryKey('cd'.repeat(32)),
+            logger,
+          });
+          try {
+            assert.deepEqual(await wrongKeyMemory.getHistory(discord.guildChannelId), []);
+          } finally {
+            await wrongKeyMemory.close();
           }
 
           // ---- Guild slash command ----------------------------------------
