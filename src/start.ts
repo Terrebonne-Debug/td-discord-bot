@@ -1,6 +1,7 @@
 import { Client, Events, GatewayIntentBits, Partials } from 'discord.js';
 import { config } from './config.ts';
 import type { LogLevel } from './config.ts';
+import { parseMemoryKey } from './crypto.ts';
 import { MemoryStore } from './memory.ts';
 import type { ConversationMemory, MemoryConnectOptions } from './memory.ts';
 import { createBot, registerCommands } from './bot.ts';
@@ -22,6 +23,7 @@ export interface StartupConfig {
   mongodbDb: string;
   mongodbTimeoutMs: number;
   memoryTtlDays: number | null;
+  memoryEncryptionKey: string | null;
   logLevel: LogLevel;
 }
 
@@ -126,6 +128,7 @@ export async function start({
     timeoutMs: appConfig.mongodbTimeoutMs,
     maxHistoryTurns: appConfig.maxHistoryTurns,
     ttlDays: appConfig.memoryTtlDays,
+    encryptionKey: parseMemoryKey(appConfig.memoryEncryptionKey),
     logger,
   });
 

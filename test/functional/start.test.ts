@@ -33,6 +33,7 @@ function appConfig(overrides: Partial<StartupConfig> = {}): StartupConfig {
     mongodbDb: 'test-db',
     mongodbTimeoutMs: 1234,
     memoryTtlDays: 7,
+    memoryEncryptionKey: 'e'.repeat(64),
     logLevel: 'info',
     ...overrides,
   };
@@ -121,6 +122,7 @@ test('start connects MongoDB, logs settings and registers the commands', async (
       timeoutMs: 1234,
       maxHistoryTurns: 2,
       ttlDays: 7,
+      encryptionKey: Buffer.from('e'.repeat(64), 'hex'),
       logger,
     },
   ]);

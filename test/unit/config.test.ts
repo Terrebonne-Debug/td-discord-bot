@@ -30,6 +30,7 @@ test('parseConfig applies every default', () => {
   assert.equal(config.mongodbDb, 'td-discord-bot');
   assert.equal(config.mongodbTimeoutMs, 5000);
   assert.equal(config.memoryTtlDays, 30);
+  assert.equal(config.memoryEncryptionKey, null);
   assert.equal(config.logLevel, 'info');
   assert.equal(config.logDir, './logs');
   assert.equal(config.logFileEnabled, true);
@@ -57,6 +58,7 @@ test('parseConfig trims values, lowercases enums and parses every override', () 
     MONGODB_DB: 'custom-db',
     MONGODB_TIMEOUT_MS: '1234',
     MEMORY_TTL_DAYS: '7',
+    MEMORY_ENCRYPTION_KEY: 'ab'.repeat(32),
     LOG_LEVEL: 'DEBUG',
     LOG_DIR: '/var/log/td-bot',
     LOG_FILE_ENABLED: 'false',
@@ -80,6 +82,7 @@ test('parseConfig trims values, lowercases enums and parses every override', () 
   assert.equal(config.mongodbDb, 'custom-db');
   assert.equal(config.mongodbTimeoutMs, 1234);
   assert.equal(config.memoryTtlDays, 7);
+  assert.equal(config.memoryEncryptionKey, 'ab'.repeat(32));
   assert.equal(config.logLevel, 'debug');
   assert.equal(config.logDir, '/var/log/td-bot');
   assert.equal(config.logFileEnabled, false);

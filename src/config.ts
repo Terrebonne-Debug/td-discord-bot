@@ -30,6 +30,7 @@ export interface Config {
   mongodbDb: string;
   mongodbTimeoutMs: number;
   memoryTtlDays: number | null;
+  memoryEncryptionKey: string | null;
 
   logLevel: LogLevel;
   logDir: string;
@@ -150,6 +151,8 @@ export function parseConfig(env: NodeJS.ProcessEnv = process.env): Readonly<Conf
     // Channel history always expires: 30 days after its last update by
     // default, MEMORY_TTL_DAYS overrides.
     memoryTtlDays: optionalPositiveInt(env, 'MEMORY_TTL_DAYS') ?? 30,
+    // Validated by parseMemoryKey in crypto.ts at startup.
+    memoryEncryptionKey: optional(env, 'MEMORY_ENCRYPTION_KEY', '') || null,
 
     logLevel,
     logDir: optional(env, 'LOG_DIR', './logs'),
