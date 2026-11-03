@@ -1,11 +1,13 @@
 import { ChannelType, Events, MessageFlags, SlashCommandBuilder } from 'discord.js';
 import type { MessageMentionOptions } from 'discord.js';
 import { askDeepSeek, describeDeepSeekError } from './deepseek.ts';
+import { createGitHubIssue } from './github.ts';
 import { MemoryUnavailableError } from './memory.ts';
 import type { ConversationMemory } from './memory.ts';
 import { createConsoleLogger } from './logging.ts';
 import type { BotLogger } from './logging.ts';
 import type { Turn } from './types.ts';
+import type { BuildInfo } from './version.ts';
 
 const DISCORD_MESSAGE_LIMIT = 2000;
 const TYPING_INTERVAL_MS = 8_000;
@@ -25,7 +27,7 @@ export interface TypingChannel {
 export interface InteractionLike {
   commandName: string;
   channelId: string | null;
-  user: { id: string };
+  user: { id: string; username: string };
   channel: TypingChannel | null;
   deferred: boolean;
   replied: boolean;
@@ -67,6 +69,8 @@ export interface BotClient {
 /** The settings createBot reads; the full Config satisfies this. */
 export interface BotSettings {
   maxPromptChars: number;
+  githubToken: string | null;
+  githubRepository: string;
 }
 
 export function splitMessage(text: string, limit = DISCORD_MESSAGE_LIMIT): string[] {
@@ -124,18 +128,71 @@ export function describeRequestError(error: unknown): string {
   return describeDeepSeekError(error);
 }
 
-function buildQuestionCommand(settings: { maxPromptChars: number }) {
-  return new SlashCommandBuilder()
-    .setName('q')
-    .setDescription('Pose une question')
-    .addStringOption((option) =>
-      option
-        .setName('prompt')
-        .setDescription('Ta question')
-        .setRequired(true)
-        .setMaxLength(Math.min(settings.maxPromptChars, 6000)),
-    )
-    .toJSON();
+/** Single source of truth for the slash commands: registration and help. */
+const COMMANDS: Array<{ name: string; description: string; help: string }> = [
+  {
+    name: 'q',
+    description: 'Pose une question',
+    help: '`/q <question>` — pose une question au bot.',
+  },
+  {
+    name: 'version',
+    description: 'Affiche la version du bot',
+    help: '`/version` — affiche le numéro de version et le dernier commit.',
+  },
+  {
+    name: 'aide',
+    description: 'Liste les commandes disponibles',
+    help: '`/aide` (alias : `/help`) — affiche cette liste.',
+  },
+  {
+    name: 'help',
+    description: 'Liste les commandes disponibles (alias de /aide)',
+    help: '`/help` (alias : `/aide`) — affiche cette liste.',
+  },
+  {
+    name: 'feature-request',
+    description: 'Crée une issue GitHub de suggestion',
+    help: '`/feature-request <texte>` — crée une issue GitHub avec ta suggestion.',
+  },
+];
+
+/** Le texte de /aide et /help, dérivé des mêmes définitions. */
+export function buildHelpText(): string {
+  const lines = COMMANDS.filter((command) => command.name !== 'help').map(
+    (command) => `- ${command.help}`,
+  );
+  return ['**Commandes disponibles**', ...lines].join('\n');
+}
+
+function buildCommands(settings: { maxPromptChars: number }) {
+  return COMMANDS.map((command) => {
+    const builder = new SlashCommandBuilder()
+      .setName(command.name)
+      .setDescription(command.description);
+
+    if (command.name === 'q') {
+      builder.addStringOption((option) =>
+        option
+          .setName('prompt')
+          .setDescription('Ta question')
+          .setRequired(true)
+          .setMaxLength(Math.min(settings.maxPromptChars, 6000)),
+      );
+    }
+
+    if (command.name === 'feature-request') {
+      builder.addStringOption((option) =>
+        option
+          .setName('texte')
+          .setDescription('Décris la fonctionnalité souhaitée')
+          .setRequired(true)
+          .setMaxLength(1000),
+      );
+    }
+
+    return builder.toJSON();
+  });
 }
 
 /** The slice of the Discord client registerCommands needs. */
@@ -153,22 +210,47 @@ export async function registerCommands(
   settings: { discordGuildId: string | null; maxPromptChars: number },
   logger: BotLogger = createConsoleLogger(),
 ): Promise<void> {
-  const q = buildQuestionCommand(settings);
+  const commands = buildCommands(settings);
 
   try {
     if (settings.discordGuildId) {
       const guild = await client.guilds.fetch(settings.discordGuildId);
-      await guild.commands.set([q]);
-      logger.info(`Registered /q in ${guild.name}.`);
+      await guild.commands.set(commands);
+      logger.info(`Registered ${commands.length} slash commands in ${guild.name}.`);
     } else {
       // After login the application always exists; commands are registered
       // post-ready.
-      await client.application!.commands.set([q]);
-      logger.info('Registered 1 global slash command (it can take up to an hour to appear).');
+      await client.application!.commands.set(commands);
+      logger.info(
+        `Registered ${commands.length} global slash commands (they can take up to an hour to appear).`,
+      );
     }
   } catch (error) {
     logger.error(`Could not register slash commands: ${messageOf(error)}`);
   }
+}
+
+/**
+ * The production issue creator used by /feature-request: posts through the
+ * GitHub API with the configured token and repository. Exposed as a factory
+ * so its branches are unit-testable with an injected fetch.
+ */
+export function createIssueFor(
+  settings: BotSettings,
+  fetchFn: typeof fetch = fetch,
+): (title: string, body: string) => Promise<string> {
+  return (title, body) => {
+    if (!settings.githubToken) throw new Error('GITHUB_TOKEN is not set.');
+    return createGitHubIssue(
+      {
+        token: settings.githubToken,
+        repository: settings.githubRepository,
+        title,
+        body,
+      },
+      fetchFn,
+    );
+  };
 }
 
 /**
@@ -181,12 +263,16 @@ export function createBot({
   memory,
   settings,
   ask = askDeepSeek,
+  buildInfo = { version: 'unknown', commit: 'unknown' },
+  createIssue = createIssueFor(settings),
   logger = createConsoleLogger(),
 }: {
   client: BotClient;
   memory: ConversationMemory;
   settings: BotSettings;
   ask?: (history: Turn[], prompt: string) => Promise<string>;
+  buildInfo?: BuildInfo;
+  createIssue?: (title: string, body: string) => Promise<string>;
   logger?: BotLogger;
 }) {
   const busyConversations = new Set<string>();
@@ -282,8 +368,84 @@ export function createBot({
     }
   }
 
+  async function handleVersion(interaction: InteractionLike): Promise<void> {
+    await interaction.reply({
+      content: `**td-discord-bot ${buildInfo.version}**\nCommit : \`${buildInfo.commit}\``,
+      allowedMentions: { parse: [] },
+    });
+  }
+
+  /** /aide et /help partagent exactement le même comportement. */
+  async function handleHelp(interaction: InteractionLike): Promise<void> {
+    await interaction.reply({
+      content: buildHelpText(),
+      allowedMentions: { parse: [] },
+    });
+  }
+
+  async function handleFeatureRequest(interaction: InteractionLike): Promise<void> {
+    const texte = interaction.options.getString('texte', true).trim();
+    if (!texte) {
+      await interaction.reply({
+        content: 'Décris la fonctionnalité souhaitée.',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    if (!settings.githubToken) {
+      await interaction.reply({
+        content:
+          'Les demandes de fonctionnalités ne sont pas configurées (GITHUB_TOKEN manquant).',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    await interaction.deferReply();
+
+    try {
+      // GitHub limite les titres à 256 caractères ; on tronque largement en deçà.
+      const title =
+        texte.length > 200 ? `${texte.slice(0, 199)}…` : texte;
+      const body = `**Demande**\n\n${texte}\n\n---\nDemandé depuis Discord par ${interaction.user.username}.`;
+      const url = await createIssue(title, body);
+      logger.info('Issue de demande créée', { url, chars: texte.length });
+      await interaction.editReply({
+        content: `Demande créée : ${url}`,
+        allowedMentions: { parse: [] },
+      });
+    } catch (error) {
+      logger.error(`Could not create the feature request issue: ${messageOf(error)}`);
+      await interaction
+        .editReply({
+          content: 'Impossible de créer la demande pour le moment. Réessayez plus tard.',
+        })
+        .catch(() => {});
+    }
+  }
+
   async function handleInteraction(interaction: InteractionLike): Promise<void> {
     if (!interaction.isChatInputCommand()) return;
+
+    if (interaction.commandName === 'version') {
+      await handleVersion(interaction);
+      return;
+    }
+
+    if (interaction.commandName === 'aide' || interaction.commandName === 'help') {
+      await handleHelp(interaction);
+      return;
+    }
+
+    if (interaction.commandName === 'feature-request') {
+      try {
+        await handleFeatureRequest(interaction);
+      } catch (error) {
+        logger.error(`Failed to handle /feature-request: ${messageOf(error)}`);
+      }
+      return;
+    }
 
     if (interaction.commandName !== 'q') return;
 

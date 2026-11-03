@@ -8,6 +8,7 @@ import { createBot, registerCommands } from './bot.ts';
 import type { BotClient } from './bot.ts';
 import { createConsoleLogger, createRootLogger } from './logging.ts';
 import type { BotLogger } from './logging.ts';
+import { readBuildInfo } from './version.ts';
 
 /** The configuration values start() reads; the full Config satisfies this. */
 export interface StartupConfig {
@@ -25,6 +26,8 @@ export interface StartupConfig {
   memoryTtlDays: number | null;
   memoryEncryptionKey: string | null;
   logLevel: LogLevel;
+  githubToken: string | null;
+  githubRepository: string;
 }
 
 /** The slice of the Discord client the startup flow needs. */
@@ -133,7 +136,7 @@ export async function start({
   });
 
   const client = createClient();
-  createBot({ client, memory, settings: appConfig, logger });
+  createBot({ client, memory, settings: appConfig, buildInfo: readBuildInfo(), logger });
 
   const ready = new Promise<void>((resolve) => {
     client.once(Events.ClientReady, async (readyClient) => {

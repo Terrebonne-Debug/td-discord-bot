@@ -19,6 +19,9 @@ Tout se modifie dans `.env`, sans toucher au code.
 
 - Mentionnez le bot dans un salon de serveur, ou envoyez-lui un MP.
 - Utilisez la commande slash `/q prompt:<question>`.
+- `/version` affiche le numéro de version et le dernier commit ; `/aide`
+  (alias `/help`) liste les commandes ; `/feature-request` crée une issue
+  GitHub avec votre suggestion.
 - Mémorise les `MAX_HISTORY_TURNS` derniers échanges par salon dans MongoDB.
 - En MP, le bot répond sans rien mémoriser.
 - Découpe les réponses longues en plusieurs messages Discord.
@@ -89,6 +92,9 @@ Tout se modifie dans `.env`, sans toucher au code.
 | `@nom-du-bot comment ça marche ?` | Répond dans le même salon |
 | MP envoyé au bot | Répond dans le MP, sans mémoire |
 | `/q prompt:comment ça marche ?` | Répond via une commande slash |
+| `/version` | Affiche la version et le dernier commit |
+| `/aide` ou `/help` | Liste les commandes disponibles |
+| `/feature-request texte:…` | Crée une issue GitHub avec la suggestion |
 
 Les prompts et les réponses générées sont envoyés à l'API DeepSeek.
 Considérez que les conversations avec le bot quittent votre serveur Discord.
@@ -174,6 +180,8 @@ Lire une archive : `zcat logs/bot-2026-11-02.log.1.gz`.
 | `LOG_FILE_ENABLED` | `true` | Active la sortie fichier (rotation + archives) |
 | `LOG_MAX_SIZE_MB` | `10` | Taille maximale d'un fichier avant rotation |
 | `LOG_RETENTION_DAYS` | `14` | Rétention des archives compressées |
+| `GITHUB_TOKEN` | vide | Jeton GitHub (permission « Issues » en écriture) pour `/feature-request`. Vide : la commande répond qu'elle n'est pas configurée |
+| `GITHUB_REPOSITORY` | `Terrebonne-Debug/td-discord-bot` | Dépôt `propriétaire/nom` où créer les issues |
 
 Pour des réponses plus rapides et moins chères, mettez
 `DEEPSEEK_THINKING=disabled`. Pour réduire la latence tout en gardant la
