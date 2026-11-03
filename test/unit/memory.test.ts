@@ -1,20 +1,34 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { parseMemoryKey } from '../../src/crypto.ts';
 import { MemoryStore } from '../../src/memory.ts';
+import type { BotLogger } from '../../src/logging.ts';
 import { createLogger } from '../helpers/fakes.ts';
 import { collection, TEST_MONGODB_URI, withMongo } from '../helpers/mongo.ts';
+
+const TEST_KEY = parseMemoryKey('ab'.repeat(32))!;
 
 async function connect({
   dbName = 'unused',
   ttlDays = null,
   maxHistoryTurns = 2,
-}: { dbName?: string; ttlDays?: number | null; maxHistoryTurns?: number } = {}) {
+  encryptionKey = null,
+  logger,
+}: {
+  dbName?: string;
+  ttlDays?: number | null;
+  maxHistoryTurns?: number;
+  encryptionKey?: Buffer | null;
+  logger?: BotLogger;
+} = {}) {
   return MemoryStore.connect({
     uri: TEST_MONGODB_URI,
     dbName,
     timeoutMs: 5_000,
     maxHistoryTurns,
     ttlDays,
+    encryptionKey,
+    logger,
   });
 }
 
@@ -113,6 +127,120 @@ test('MongoDB channel memory trims turns per channel', async () => {
         { role: 'user', content: 'c3' },
         { role: 'assistant', content: 'cr3' },
       ]);
+    } finally {
+      await store.close();
+    }
+  });
+});
+
+test('channel memory is encrypted at rest when a key is configured', async () => {
+  await withMongo(async ({ db, dbName }) => {
+    const store = await connect({ dbName, encryptionKey: TEST_KEY });
+
+    try {
+      await store.appendTurn('chan', 'secret prompt', 'secret reply');
+
+      assert.deepEqual(await store.getHistory('chan'), [
+        { role: 'user', content: 'secret prompt' },
+        { role: 'assistant', content: 'secret reply' },
+      ]);
+
+      const doc = await collection(db, 'channel_memories').findOne({ _id: 'chan' });
+      assert.ok(doc);
+      const raw = JSON.stringify(doc.turns);
+      assert.equal(raw.includes('secret prompt'), false, 'aucun texte en clair');
+      assert.equal(raw.includes('secret reply'), false, 'aucun texte en clair');
+      assert.equal(typeof doc.turns[0].iv, 'string');
+      assert.equal(typeof doc.turns[0].ciphertext, 'string');
+      assert.equal(typeof doc.turns[0].authTag, 'string');
+    } finally {
+      await store.close();
+    }
+  });
+});
+
+test('legacy plaintext turns are still read alongside encrypted ones', async () => {
+  await withMongo(async ({ db, dbName }) => {
+    await collection(db, 'channel_memories').insertOne({
+      _id: 'chan',
+      turns: [{ role: 'user', content: 'legacy plaintext' }],
+      updatedAt: new Date(),
+    });
+
+    const store = await connect({ dbName, encryptionKey: TEST_KEY });
+
+    try {
+      await store.appendTurn('chan', 'new prompt', 'new reply');
+
+      assert.deepEqual(await store.getHistory('chan'), [
+        { role: 'user', content: 'legacy plaintext' },
+        { role: 'user', content: 'new prompt' },
+        { role: 'assistant', content: 'new reply' },
+      ]);
+    } finally {
+      await store.close();
+    }
+  });
+});
+
+test('tampered encrypted entries are skipped with a warning', async () => {
+  await withMongo(async ({ db, dbName }) => {
+    const store = await connect({ dbName, encryptionKey: TEST_KEY });
+
+    try {
+      await store.appendTurn('chan', 'secret', 'reply');
+
+      // Corrompt le texte chiffré en base.
+      const doc = await collection(db, 'channel_memories').findOne({ _id: 'chan' });
+      assert.ok(doc);
+      const tampered = JSON.parse(JSON.stringify(doc.turns));
+      tampered[0].ciphertext = `${tampered[0].ciphertext[0] === '0' ? '1' : '0'}${tampered[0].ciphertext.slice(1)}`;
+      await collection(db, 'channel_memories').updateOne({ _id: 'chan' }, { $set: { turns: tampered } });
+
+      const logger = createLogger();
+      const reader = await connect({ dbName, encryptionKey: TEST_KEY, logger });
+      try {
+        assert.deepEqual(await reader.getHistory('chan'), [
+          { role: 'assistant', content: 'reply' },
+        ]);
+        assert.match(logger.messages('warn')[0], /decryption failed/);
+      } finally {
+        await reader.close();
+      }
+    } finally {
+      await store.close();
+    }
+  });
+});
+
+test('encrypted entries without a key are skipped with a warning', async () => {
+  await withMongo(async ({ db, dbName }) => {
+    const writer = await connect({ dbName, encryptionKey: TEST_KEY });
+    try {
+      await writer.appendTurn('chan', 'secret', 'reply');
+    } finally {
+      await writer.close();
+    }
+
+    const logger = createLogger();
+    const reader = await connect({ dbName, logger });
+    try {
+      assert.deepEqual(await reader.getHistory('chan'), []);
+      assert.match(logger.messages('warn')[0], /stored in plaintext/);
+      assert.match(logger.messages('warn')[1], /no MEMORY_ENCRYPTION_KEY configured/);
+    } finally {
+      await reader.close();
+    }
+  });
+});
+
+test('connect warns when MongoDB is used without an encryption key', async () => {
+  await withMongo(async ({ dbName }) => {
+    const logger = createLogger();
+    const store = await connect({ dbName, logger });
+
+    try {
+      assert.match(logger.messages('warn')[0], /stored in plaintext/);
     } finally {
       await store.close();
     }
