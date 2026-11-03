@@ -1,4 +1,13 @@
-import { ChannelType, Events, MessageFlags, SlashCommandBuilder } from 'discord.js';
+import {
+  ActionRowBuilder,
+  ChannelType,
+  Events,
+  MessageFlags,
+  ModalBuilder,
+  SlashCommandBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+} from 'discord.js';
 import type { MessageMentionOptions } from 'discord.js';
 import { askDeepSeek, describeDeepSeekError } from './deepseek.ts';
 import { createGitHubIssue } from './github.ts';
@@ -31,12 +40,29 @@ export interface InteractionLike {
   channel: TypingChannel | null;
   deferred: boolean;
   replied: boolean;
-  isChatInputCommand(): boolean;
+  isChatInputCommand(): this is InteractionLike;
+  isModalSubmit(): this is ModalSubmitLike;
   inGuild(): boolean;
   options: {
     getString(name: string, required: true): string;
     getString(name: string, required?: boolean): string | null;
   };
+  showModal(modal: unknown): Promise<unknown>;
+  deferReply(): Promise<unknown>;
+  reply(payload: ReplyPayload): Promise<unknown>;
+  editReply(payload: ReplyPayload): Promise<unknown>;
+  followUp(payload: ReplyPayload): Promise<unknown>;
+}
+
+/** The slice of a modal submission the bot reads. */
+export interface ModalSubmitLike {
+  customId: string;
+  user: { id: string; username: string };
+  deferred: boolean;
+  replied: boolean;
+  isChatInputCommand(): this is InteractionLike;
+  isModalSubmit(): this is ModalSubmitLike;
+  fields: { getTextInputValue(name: string): string };
   deferReply(): Promise<unknown>;
   reply(payload: ReplyPayload): Promise<unknown>;
   editReply(payload: ReplyPayload): Promise<unknown>;
@@ -153,7 +179,7 @@ const COMMANDS: Array<{ name: string; description: string; help: string }> = [
   {
     name: 'feature-request',
     description: 'Crée une issue GitHub de suggestion',
-    help: '`/feature-request <texte>` — crée une issue GitHub avec ta suggestion.',
+    help: '`/feature-request` — ouvre un formulaire (titre + description) pour créer une issue GitHub.',
   },
 ];
 
@@ -181,18 +207,38 @@ function buildCommands(settings: { maxPromptChars: number }) {
       );
     }
 
-    if (command.name === 'feature-request') {
-      builder.addStringOption((option) =>
-        option
-          .setName('texte')
-          .setDescription('Décris la fonctionnalité souhaitée')
-          .setRequired(true)
-          .setMaxLength(1000),
-      );
-    }
-
     return builder.toJSON();
   });
+}
+
+/**
+ * Le formulaire de /feature-request : un titre court et une description,
+ * Discord n'offrant pas de saisie multi-champs dans une slash command.
+ */
+export function buildFeatureRequestModal(): ModalBuilder {
+  return new ModalBuilder()
+    .setCustomId('feature-request')
+    .setTitle('Demande de fonctionnalité')
+    .addComponents(
+      new ActionRowBuilder<TextInputBuilder>().addComponents(
+        new TextInputBuilder()
+          .setCustomId('titre')
+          .setLabel('Titre')
+          .setStyle(TextInputStyle.Short)
+          .setPlaceholder('Résumé court de la suggestion')
+          .setRequired(true)
+          .setMaxLength(200),
+      ),
+      new ActionRowBuilder<TextInputBuilder>().addComponents(
+        new TextInputBuilder()
+          .setCustomId('description')
+          .setLabel('Description')
+          .setStyle(TextInputStyle.Paragraph)
+          .setPlaceholder('Décris la fonctionnalité souhaitée')
+          .setRequired(true)
+          .setMaxLength(4000),
+      ),
+    );
 }
 
 /** The slice of the Discord client registerCommands needs. */
@@ -383,16 +429,8 @@ export function createBot({
     });
   }
 
+  /** Ouvre le formulaire titre + description. */
   async function handleFeatureRequest(interaction: InteractionLike): Promise<void> {
-    const texte = interaction.options.getString('texte', true).trim();
-    if (!texte) {
-      await interaction.reply({
-        content: 'Décris la fonctionnalité souhaitée.',
-        flags: MessageFlags.Ephemeral,
-      });
-      return;
-    }
-
     if (!settings.githubToken) {
       await interaction.reply({
         content:
@@ -402,15 +440,31 @@ export function createBot({
       return;
     }
 
+    await interaction.showModal(buildFeatureRequestModal());
+  }
+
+  /** Reçoit le formulaire rempli et crée l'issue GitHub. */
+  async function handleFeatureRequestSubmit(interaction: ModalSubmitLike): Promise<void> {
+    if (interaction.customId !== 'feature-request') return;
+
+    const title = interaction.fields.getTextInputValue('titre').trim();
+    const description = interaction.fields.getTextInputValue('description').trim();
+    if (!title || !description) {
+      await interaction.reply({
+        content: 'Le titre et la description sont requis.',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
     await interaction.deferReply();
 
     try {
       // GitHub limite les titres à 256 caractères ; on tronque largement en deçà.
-      const title =
-        texte.length > 200 ? `${texte.slice(0, 199)}…` : texte;
-      const body = `**Demande**\n\n${texte}\n\n---\nDemandé depuis Discord par ${interaction.user.username}.`;
-      const url = await createIssue(title, body);
-      logger.info('Issue de demande créée', { url, chars: texte.length });
+      const safeTitle = title.length > 200 ? `${title.slice(0, 199)}…` : title;
+      const body = `**Demande**\n\n${description}\n\n---\nDemandé depuis Discord par ${interaction.user.username}.`;
+      const url = await createIssue(safeTitle, body);
+      logger.info('Issue de demande créée', { url, chars: description.length });
       await interaction.editReply({
         content: `Demande créée : ${url}`,
         allowedMentions: { parse: [] },
@@ -425,7 +479,18 @@ export function createBot({
     }
   }
 
-  async function handleInteraction(interaction: InteractionLike): Promise<void> {
+  async function handleInteraction(
+    interaction: InteractionLike | ModalSubmitLike,
+  ): Promise<void> {
+    if (interaction.isModalSubmit()) {
+      try {
+        await handleFeatureRequestSubmit(interaction);
+      } catch (error) {
+        logger.error(`Failed to handle feature-request submit: ${messageOf(error)}`);
+      }
+      return;
+    }
+
     if (!interaction.isChatInputCommand()) return;
 
     if (interaction.commandName === 'version') {

@@ -11,6 +11,7 @@ import {
   createFakeInteraction,
   createFakeMemory,
   createFakeMessage,
+  createFakeModalSubmit,
   createLogger,
 } from '../helpers/fakes.ts';
 import type { FakeClient, FakeMemory } from '../helpers/fakes.ts';
@@ -173,50 +174,22 @@ test('/aide and /help reply with exactly the same command list', async () => {
   assert.equal(aideContent.includes('`/help` (alias'), false, 'pas de ligne /help séparée');
 });
 
-test('/feature-request creates a GitHub issue and replies with its URL', async () => {
-  const issues: Array<{ title: string; body: string }> = [];
-  const { bot, logger } = setup({
-    createIssue: async (title, body) => {
-      issues.push({ title, body });
-      return 'https://github.com/owner/repo/issues/7';
-    },
-  });
+test('/feature-request shows the title and description modal', async () => {
+  const { bot } = setup();
 
-  const interaction = createFakeInteraction({
-    commandName: 'feature-request',
-    prompt: 'Ajouter un système de sondages',
-  });
+  const interaction = createFakeInteraction({ commandName: 'feature-request' });
   await bot.handleInteraction(interaction);
 
-  assert.deepEqual(interaction.calls.map((call) => call.method), ['deferReply', 'editReply']);
-  assert.equal(
-    interaction.calls[1].payload?.content,
-    'Demande créée : https://github.com/owner/repo/issues/7',
-  );
-  assert.deepEqual(issues, [
-    {
-      title: 'Ajouter un système de sondages',
-      body: '**Demande**\n\nAjouter un système de sondages\n\n---\nDemandé depuis Discord par alice.',
-    },
-  ]);
-  assert.match(logger.messages('info')[0], /Issue de demande créée/);
-});
-
-test('/feature-request truncates titles beyond 200 characters', async () => {
-  const issues: Array<{ title: string; body: string }> = [];
-  const { bot } = setup({
-    createIssue: async (title, body) => {
-      issues.push({ title, body });
-      return 'url';
-    },
-  });
-
-  const texte = 'x'.repeat(300);
-  await bot.handleInteraction(createFakeInteraction({ commandName: 'feature-request', prompt: texte }));
-
-  assert.equal(issues[0].title.length, 200);
-  assert.equal(issues[0].title.endsWith('…'), true);
-  assert.equal(issues[0].body.includes(texte), true);
+  assert.deepEqual(interaction.calls.map((call) => call.method), ['showModal']);
+  assert.equal(interaction.modals.length, 1);
+  const json = (interaction.modals[0] as { toJSON(): Record<string, any> }).toJSON();
+  assert.equal(json.custom_id, 'feature-request');
+  assert.equal(json.title, 'Demande de fonctionnalité');
+  const inputs = json.components.map((row: Record<string, any>) => row.components[0]);
+  assert.equal(inputs[0].custom_id, 'titre');
+  assert.equal(inputs[0].max_length, 200);
+  assert.equal(inputs[1].custom_id, 'description');
+  assert.equal(inputs[1].max_length, 4000);
 });
 
 test('/feature-request replies it is not configured without a GitHub token', async () => {
@@ -229,32 +202,13 @@ test('/feature-request replies it is not configured without a GitHub token', asy
     },
   });
 
-  const interaction = createFakeInteraction({
-    commandName: 'feature-request',
-    prompt: 'Une idée',
-  });
+  const interaction = createFakeInteraction({ commandName: 'feature-request' });
   await bot.handleInteraction(interaction);
 
   assert.equal(interaction.calls.length, 1);
   assert.match(interaction.calls[0].payload?.content ?? '', /GITHUB_TOKEN manquant/);
   assert.equal(interaction.calls[0].payload?.flags, MessageFlags.Ephemeral);
-  assert.deepEqual(issues, []);
-});
-
-test('/feature-request rejects an empty text', async () => {
-  const issues: string[] = [];
-  const { bot } = setup({
-    createIssue: async () => {
-      issues.push('appelé');
-      return 'url';
-    },
-  });
-
-  const interaction = createFakeInteraction({ commandName: 'feature-request', prompt: '   ' });
-  await bot.handleInteraction(interaction);
-
-  assert.equal(interaction.calls.length, 1);
-  assert.equal(interaction.calls[0].payload?.content, 'Décris la fonctionnalité souhaitée.');
+  assert.equal(interaction.modals.length, 0);
   assert.deepEqual(issues, []);
 });
 
@@ -263,11 +217,101 @@ test('/feature-request handler failures are logged instead of crashing', async (
 
   const interaction = createFakeInteraction({
     commandName: 'feature-request',
-    failures: { getString: 1 },
+    failures: { showModal: 1 },
   });
   await bot.handleInteraction(interaction);
 
-  assert.match(logger.messages('error')[0], /Failed to handle \/feature-request/);
+  assert.match(logger.messages('error')[0], /Failed to handle \/feature-request: showModal failed/);
+});
+
+test('a feature-request submit creates the issue with title and description', async () => {
+  const issues: Array<{ title: string; body: string }> = [];
+  const { bot, logger } = setup({
+    createIssue: async (title, body) => {
+      issues.push({ title, body });
+      return 'https://github.com/owner/repo/issues/7';
+    },
+  });
+
+  const modal = createFakeModalSubmit({
+    title: 'Ajouter un système de sondages',
+    description: 'Des sondages générés par IA dans un salon dédié.',
+  });
+  await bot.handleInteraction(modal);
+
+  assert.deepEqual(modal.calls.map((call) => call.method), ['deferReply', 'editReply']);
+  assert.equal(
+    modal.calls[1].payload?.content,
+    'Demande créée : https://github.com/owner/repo/issues/7',
+  );
+  assert.deepEqual(issues, [
+    {
+      title: 'Ajouter un système de sondages',
+      body: '**Demande**\n\nDes sondages générés par IA dans un salon dédié.\n\n---\nDemandé depuis Discord par alice.',
+    },
+  ]);
+  assert.match(logger.messages('info')[0], /Issue de demande créée/);
+});
+
+test('a feature-request submit truncates titles beyond 200 characters', async () => {
+  const issues: Array<{ title: string; body: string }> = [];
+  const { bot } = setup({
+    createIssue: async (title, body) => {
+      issues.push({ title, body });
+      return 'url';
+    },
+  });
+
+  await bot.handleInteraction(createFakeModalSubmit({ title: 'x'.repeat(300) }));
+
+  assert.equal(issues[0].title.length, 200);
+  assert.equal(issues[0].title.endsWith('…'), true);
+});
+
+test('a feature-request submit rejects an empty title or description', async () => {
+  const issues: string[] = [];
+  const { bot } = setup({
+    createIssue: async () => {
+      issues.push('appelé');
+      return 'url';
+    },
+  });
+
+  const emptyTitle = createFakeModalSubmit({ title: '   ' });
+  await bot.handleInteraction(emptyTitle);
+  const emptyDescription = createFakeModalSubmit({ description: '' });
+  await bot.handleInteraction(emptyDescription);
+
+  for (const modal of [emptyTitle, emptyDescription]) {
+    assert.equal(modal.calls.length, 1);
+    assert.equal(modal.calls[0].payload?.content, 'Le titre et la description sont requis.');
+    assert.equal(modal.calls[0].payload?.flags, MessageFlags.Ephemeral);
+  }
+  assert.deepEqual(issues, []);
+});
+
+test('a feature-request submit ignores unknown modals', async () => {
+  const issues: string[] = [];
+  const { bot } = setup({
+    createIssue: async () => {
+      issues.push('appelé');
+      return 'url';
+    },
+  });
+
+  const modal = createFakeModalSubmit({ customId: 'autre-modal' });
+  await bot.handleInteraction(modal);
+
+  assert.deepEqual(modal.calls, []);
+  assert.deepEqual(issues, []);
+});
+
+test('a feature-request submit handler failure is logged instead of crashing', async () => {
+  const { bot, logger } = setup();
+
+  await bot.handleInteraction(createFakeModalSubmit({ failures: { getTextInputValue: 1 } }));
+
+  assert.match(logger.messages('error')[0], /Failed to handle feature-request submit/);
 });
 
 test('createIssueFor posts through the configured token and repository', async () => {
@@ -300,39 +344,31 @@ test('createIssueFor throws without a GitHub token', () => {
   assert.throws(() => createIssue('titre', 'corps'), /GITHUB_TOKEN is not set/);
 });
 
-test('/feature-request tolerates a failure of the error reply itself', async () => {
+test('a feature-request submit tolerates a failure of the error reply itself', async () => {
   const { bot, logger } = setup({
     createIssue: async () => {
       throw new Error('api down');
     },
   });
 
-  const interaction = createFakeInteraction({
-    commandName: 'feature-request',
-    prompt: 'Une idée',
-    failures: { editReply: 1 },
-  });
-
-  await assert.doesNotReject(bot.handleInteraction(interaction));
+  const modal = createFakeModalSubmit({ failures: { editReply: 1 } });
+  await assert.doesNotReject(bot.handleInteraction(modal));
   assert.match(logger.messages('error')[0], /Could not create the feature request issue/);
 });
 
-test('/feature-request reports a creation failure', async () => {
+test('a feature-request submit reports a creation failure', async () => {
   const { bot, logger } = setup({
     createIssue: async () => {
       throw new Error('api down');
     },
   });
 
-  const interaction = createFakeInteraction({
-    commandName: 'feature-request',
-    prompt: 'Une idée',
-  });
-  await bot.handleInteraction(interaction);
+  const modal = createFakeModalSubmit();
+  await bot.handleInteraction(modal);
 
   assert.match(logger.messages('error')[0], /Could not create the feature request issue: api down/);
-  assert.equal(interaction.calls.at(-1)?.method, 'editReply');
-  assert.match(interaction.calls.at(-1)?.payload?.content ?? '', /Impossible de créer la demande/);
+  assert.equal(modal.calls.at(-1)?.method, 'editReply');
+  assert.match(modal.calls.at(-1)?.payload?.content ?? '', /Impossible de créer la demande/);
 });
 
 test('non-Error failures are logged without crashing', async () => {

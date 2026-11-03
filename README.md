@@ -20,8 +20,8 @@ Tout se modifie dans `.env`, sans toucher au code.
 - Mentionnez le bot dans un salon de serveur, ou envoyez-lui un MP.
 - Utilisez la commande slash `/q prompt:<question>`.
 - `/version` affiche le numéro de version et le dernier commit ; `/aide`
-  (alias `/help`) liste les commandes ; `/feature-request` crée une issue
-  GitHub avec votre suggestion.
+  (alias `/help`) liste les commandes ; `/feature-request` ouvre un
+  formulaire (titre + description) et crée une issue GitHub.
 - Mémorise les `MAX_HISTORY_TURNS` derniers échanges par salon dans MongoDB.
 - En MP, le bot répond sans rien mémoriser.
 - Découpe les réponses longues en plusieurs messages Discord.
@@ -94,7 +94,7 @@ Tout se modifie dans `.env`, sans toucher au code.
 | `/q prompt:comment ça marche ?` | Répond via une commande slash |
 | `/version` | Affiche la version et le dernier commit |
 | `/aide` ou `/help` | Liste les commandes disponibles |
-| `/feature-request texte:…` | Crée une issue GitHub avec la suggestion |
+| `/feature-request` | Ouvre un formulaire (titre + description) puis crée une issue GitHub |
 
 Les prompts et les réponses générées sont envoyés à l'API DeepSeek.
 Considérez que les conversations avec le bot quittent votre serveur Discord.
