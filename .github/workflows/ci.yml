@@ -34,6 +34,22 @@ jobs:
       - name: Typecheck sources and tests
         run: npm run check
 
+  security:
+    name: CVE scan
+    runs-on: [self-hosted, Linux, X64, discord-bot]
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # Scan package-lock.json against the OSV database (CVE + GHSA).
+      # The step fails when a known vulnerability is found; to ignore a
+      # confirmed false positive, add an osv-scanner.toml to the repository.
+      # Bump the version tag here when a new osv-scanner release comes out.
+      - name: Scan dependencies for known CVEs
+        run: |
+          docker run --rm -v "$PWD:/src" ghcr.io/google/osv-scanner:v2.7.0 scan --recursive /src
+
   tests:
     name: Tests and 100% coverage
     needs: basics
