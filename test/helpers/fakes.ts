@@ -5,6 +5,7 @@ import type {
   InteractionLike,
   MessageChannelLike,
   MessageLike,
+  ModalSubmitLike,
   ReplyPayload,
   TypingChannel,
 } from '../../src/bot.ts';
@@ -134,6 +135,7 @@ function makeFailureCounter(failures: Record<string, number>) {
 
 export interface FakeInteraction extends InteractionLike {
   calls: FakeCall[];
+  modals: unknown[];
 }
 
 export function createFakeInteraction({
@@ -158,6 +160,7 @@ export function createFakeInteraction({
   failures?: Record<string, number>;
 } = {}): FakeInteraction {
   const calls: FakeCall[] = [];
+  const modals: unknown[] = [];
   const fail = makeFailureCounter(failures);
 
   const interaction: FakeInteraction = {
@@ -168,13 +171,24 @@ export function createFakeInteraction({
     deferred: false,
     replied: false,
     calls,
+    modals,
     inGuild: () => Boolean(guildId),
-    isChatInputCommand: () => chatInput,
+    isChatInputCommand(): this is InteractionLike {
+      return chatInput;
+    },
+    isModalSubmit(): this is ModalSubmitLike {
+      return false;
+    },
     options: {
       getString: () => {
         fail('getString');
         return prompt;
       },
+    },
+    async showModal(modal) {
+      calls.push({ method: 'showModal' });
+      modals.push(modal);
+      fail('showModal');
     },
     async reply(payload) {
       calls.push({ method: 'reply', payload });
@@ -199,6 +213,71 @@ export function createFakeInteraction({
   };
 
   return interaction;
+}
+
+export interface FakeModalSubmit extends ModalSubmitLike {
+  calls: FakeCall[];
+}
+
+export function createFakeModalSubmit({
+  customId = 'feature-request',
+  title = 'Un titre',
+  description = 'Une description',
+  userId = 'user-1',
+  username = 'alice',
+  failures = {},
+}: {
+  customId?: string;
+  title?: string;
+  description?: string;
+  userId?: string;
+  username?: string;
+  failures?: Record<string, number>;
+} = {}): FakeModalSubmit {
+  const calls: FakeCall[] = [];
+  const fail = makeFailureCounter(failures);
+
+  const modal: FakeModalSubmit = {
+    customId,
+    user: { id: userId, username },
+    deferred: false,
+    replied: false,
+    calls,
+    isChatInputCommand(): this is InteractionLike {
+      return false;
+    },
+    isModalSubmit(): this is ModalSubmitLike {
+      return true;
+    },
+    fields: {
+      getTextInputValue: (name) => {
+        fail('getTextInputValue');
+        return name === 'titre' ? title : description;
+      },
+    },
+    async reply(payload) {
+      calls.push({ method: 'reply', payload });
+      fail('reply');
+      modal.replied = true;
+    },
+    async deferReply() {
+      calls.push({ method: 'deferReply' });
+      fail('deferReply');
+      modal.deferred = true;
+    },
+    async editReply(payload) {
+      calls.push({ method: 'editReply', payload });
+      fail('editReply');
+      modal.replied = true;
+    },
+    async followUp(payload) {
+      calls.push({ method: 'followUp', payload });
+      fail('followUp');
+      modal.replied = true;
+    },
+  };
+
+  return modal;
 }
 
 export interface FakeMessage extends MessageLike {

@@ -54,6 +54,13 @@ export interface FakeDiscord {
     subcommand?: string | null;
     dm?: boolean;
   }): void;
+  dispatchModalSubmit(data: {
+    interactionId: string;
+    customId: string;
+    title: string;
+    description: string;
+    dm?: boolean;
+  }): void;
   messageData(options: {
     id: string;
     content: string;
@@ -485,6 +492,64 @@ export async function startFakeDiscord({
     };
   }
 
+  function modalSubmitData({
+    interactionId,
+    customId,
+    title,
+    description,
+    dm = false,
+  }: {
+    interactionId: string;
+    customId: string;
+    title: string;
+    description: string;
+    dm?: boolean;
+  }): Json {
+    return {
+      id: interactionId,
+      application_id: applicationId,
+      type: 5,
+      token: `token-${interactionId}`,
+      ...(dm
+        ? {
+            user: humanUser,
+            channel_id: 'dm-1',
+            channel: { id: 'dm-1', type: 1, recipients: [humanUser] },
+          }
+        : {
+            guild_id: guildId,
+            channel_id: guildChannelId,
+            channel: guildChannel,
+            member: {
+              user: humanUser,
+              roles: [],
+              permissions: '0',
+              joined_at: new Date(0).toISOString(),
+              deaf: false,
+              mute: false,
+              flags: 0,
+              pending: false,
+            },
+          }),
+      data: {
+        custom_id: customId,
+        components: [
+          {
+            type: 1,
+            components: [
+              { type: 4, custom_id: 'titre', value: title },
+              { type: 4, custom_id: 'description', value: description },
+            ],
+          },
+        ],
+      },
+      authorizing_integration_owners: dm ? { 1: humanUserId } : { 0: guildId },
+      entitlements: [],
+      version: 1,
+      locale: 'en-US',
+    };
+  }
+
   return {
     url: `http://127.0.0.1:${(server.address() as AddressInfo).port}`,
     guildId,
@@ -500,6 +565,9 @@ export async function startFakeDiscord({
     },
     dispatchCommand(data) {
       dispatch('INTERACTION_CREATE', commandData(data));
+    },
+    dispatchModalSubmit(data) {
+      dispatch('INTERACTION_CREATE', modalSubmitData(data));
     },
     messageData,
     close() {

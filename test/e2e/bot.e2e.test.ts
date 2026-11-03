@@ -279,17 +279,25 @@ test(
           assert.match(versionReply.body.data.content, /9\.9\.9/);
           assert.match(versionReply.body.data.content, /abc1234/);
 
+          // ---- /feature-request : commande, modal, création d'issue ---------
           discord.dispatchCommand({
             interactionId: 'interaction-feature',
             commandName: 'feature-request',
-            options: [{ name: 'texte', type: 3, value: 'Un mode quiz' }],
           });
-          const featureDeferred = await discord.waitForRequest(
+          const modalCallback = await discord.waitForRequest(
             (request) =>
               request.kind === 'interactionCallback' &&
               request.interactionId === 'interaction-feature',
           );
-          assert.equal(featureDeferred.body.type, 5);
+          assert.equal(modalCallback.body.type, 9);
+          assert.equal(modalCallback.body.data.custom_id, 'feature-request');
+
+          discord.dispatchModalSubmit({
+            interactionId: 'interaction-feature-modal',
+            customId: 'feature-request',
+            title: 'Un mode quiz',
+            description: 'Ajouter des quiz générés par IA.',
+          });
 
           await discord.waitForRequest(
             (request) =>
@@ -300,7 +308,7 @@ test(
           assert.deepEqual(issues, [
             {
               title: 'Un mode quiz',
-              body: '**Demande**\n\nUn mode quiz\n\n---\nDemandé depuis Discord par Alice.',
+              body: '**Demande**\n\nAjouter des quiz générés par IA.\n\n---\nDemandé depuis Discord par Alice.',
             },
           ]);
 
