@@ -358,8 +358,9 @@ test('a feature-request submit tolerates a failure of the error reply itself', a
 
 test('a feature-request submit reports a creation failure', async () => {
   const { bot, logger } = setup({
+    // Un rejet non-Error couvre aussi la branche String(error) du journal.
     createIssue: async () => {
-      throw new Error('api down');
+      throw 'api down';
     },
   });
 

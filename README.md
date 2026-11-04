@@ -108,6 +108,11 @@ types (`npm run check`). Seule la syntaxe TypeScript effaçable est utilisée
 (pas d'enum, pas de namespace), ce que garantit `erasableSyntaxOnly`.
 Chaque interface vit dans `src/models/`, une par fichier, regroupée par
 domaine (`discord/`, `memory/`, `logging/`, `config/`, `deepseek/`…).
+`src/bot/` applique deux patrons de conception : chaque commande slash est
+une classe derrière un `CommandDispatcher` (patron **Commande**), et le flux
+`/q`/mention partage un `ConversationService` paramétré par des
+`ConversationStrategy` (patron **Stratégie**) — ajouter une commande ou une
+source de conversation ne modifie plus la façade `Bot`.
 
 ## Mémoire
 

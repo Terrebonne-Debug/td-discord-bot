@@ -142,8 +142,10 @@ test('registerCommands registers every command globally without a guild id', asy
 
 test('registerCommands logs instead of throwing when Discord rejects the update', async () => {
   const client = createFakeClient();
+  // Un échec non-Error (ici une chaîne) couvre aussi la branche de
+  // journalisation des rejets inhabituels.
   client.guilds.fetch = async () => {
-    throw new Error('discord down');
+    throw 'discord down';
   };
   const logger = createLogger();
 
