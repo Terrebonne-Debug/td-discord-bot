@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { EventEmitter, once } from 'node:events';
 import test from 'node:test';
 import { Client, GatewayIntentBits, Partials } from 'discord.js';
-import { createDefaultClient, installShutdownHandlers, start } from '../../src/start.ts';
+import { Launcher } from '../../src/startup/launcher.ts';
 import type { MemoryConnectOptions } from '../../src/models/memory/memory-connect-options.ts';
 import type { ProcessLike } from '../../src/models/start/process-like.ts';
 import type { StartupConfig } from '../../src/models/start/startup-config.ts';
@@ -43,7 +43,7 @@ function appConfig(overrides: Partial<StartupConfig> = {}): StartupConfig {
 }
 
 test('createDefaultClient enables the required intents and channel partials', () => {
-  const client = createDefaultClient();
+  const client = Launcher.createDefaultClient();
 
   assert.ok(client instanceof Client);
   for (const intent of [
@@ -65,7 +65,7 @@ test('shutdown destroys the client and closes memory exactly once', async () => 
   const logger = createLogger();
   const processRef = makeProcess();
 
-  installShutdownHandlers({ client, memory, logger, processRef });
+  Launcher.installShutdownHandlers({ client, memory, logger, processRef });
 
   processRef.emit('SIGINT');
   const [code] = await once(processRef, 'exit');
@@ -91,7 +91,7 @@ test('a failed shutdown is logged and exits with a non-zero code', async () => {
   const logger = createLogger();
   const processRef = makeProcess();
 
-  installShutdownHandlers({ client, memory, logger, processRef });
+  Launcher.installShutdownHandlers({ client, memory, logger, processRef });
 
   processRef.emit('SIGTERM');
   const [code] = await once(processRef, 'exit');
@@ -107,7 +107,7 @@ test('start connects MongoDB, logs settings and registers the commands', async (
   const processRef = makeProcess();
   const connectCalls: MemoryConnectOptions[] = [];
 
-  const result = await start({
+  const result = await new Launcher({
     appConfig: appConfig(),
     createClient: () => client,
     connectMemory: async (options) => {
@@ -116,7 +116,7 @@ test('start connects MongoDB, logs settings and registers the commands', async (
     },
     logger,
     processRef,
-  });
+  }).start();
 
   assert.deepEqual(connectCalls, [
     {
@@ -154,13 +154,13 @@ test('start logs MongoDB memory without a TTL when none is configured', async ()
   const memory = createFakeMemory({ mode: 'mongo' });
   const logger = createLogger();
 
-  await start({
+  await new Launcher({
     appConfig: appConfig({ memoryTtlDays: null }),
     createClient: () => client,
     connectMemory: async () => memory,
     logger,
     processRef: makeProcess(),
-  });
+  }).start();
 
   assert.ok(logger.messages('info').includes('Memory: MongoDB db=test-db.'));
 });
@@ -171,7 +171,7 @@ test('start logs the in-RAM fallback when MongoDB is unavailable', async () => {
   const logger = createLogger();
   const processRef = makeProcess();
 
-  await start({
+  await new Launcher({
     appConfig: appConfig({
       discordGuildId: null,
       deepseekThinking: 'disabled',
@@ -181,7 +181,7 @@ test('start logs the in-RAM fallback when MongoDB is unavailable', async () => {
     connectMemory: async () => memory,
     logger,
     processRef,
-  });
+  }).start();
 
   assert.deepEqual(logger.messages('info'), [
     'Démarrage du bot',
@@ -205,13 +205,13 @@ test('start cleans up and rethrows when Discord login fails', async () => {
   const logger = createLogger();
 
   await assert.rejects(
-    start({
+    new Launcher({
       appConfig: appConfig(),
       createClient: () => client,
       connectMemory: async () => memory,
       logger,
       processRef: makeProcess(),
-    }),
+    }).start(),
     /bad token/,
   );
 

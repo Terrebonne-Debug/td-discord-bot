@@ -3,7 +3,8 @@ import { mkdir, mkdtemp, readdir, rm, symlink, utimes, writeFile } from 'node:fs
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { activeLogFilename, archiveLogs, createRootLogger } from '../../src/logging.ts';
+import { ArchiveSweeper } from '../../src/logging/archive-sweeper.ts';
+import { LoggerFactory } from '../../src/logging/logger-factory.ts';
 import type { LoggingConfig } from '../../src/models/logging/logging-config.ts';
 
 function fileConfig(logDir: string, logMaxSizeMb = 1): LoggingConfig {
@@ -28,7 +29,7 @@ async function waitFor(condition: () => Promise<boolean>, timeoutMs = 5_000): Pr
 
 test('the rotating file logger turns size rotations into gzip archives', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'td-logs-'));
-  const logger = createRootLogger(fileConfig(dir), { isTTY: false });
+  const logger = new LoggerFactory(fileConfig(dir)).rootLogger({ isTTY: false });
 
   try {
     // ~1,5 Mo au total, au-delà du maxSize de 1 Mo : la rotation doit se produire.
@@ -48,7 +49,7 @@ test('the rotating file logger turns size rotations into gzip archives', async (
     await waitFor(rotatedOrArchived);
 
     // Le balayage compresse la rotation terminée et supprime l'original.
-    await archiveLogs(dir, 2);
+    await new ArchiveSweeper(dir, 2).sweep();
 
     const files = await list();
     assert.ok(
@@ -74,7 +75,7 @@ test('archiveLogs deletes expired archives, keeps fresh ones and survives unread
   try {
     const day = 86_400_000;
     const now = new Date('2026-11-02T12:00:00Z');
-    const activeName = activeLogFilename(new Intl.DateTimeFormat('en-CA').format(now));
+    const activeName = ArchiveSweeper.activeLogFilename(new Intl.DateTimeFormat('en-CA').format(now));
 
     // Archives expirées et fraîche, contrôlées par leur date de modification.
     await writeFile(path.join(dir, 'vieux.gz'), 'old');
@@ -89,7 +90,7 @@ test('archiveLogs deletes expired archives, keeps fresh ones and survives unread
     await writeFile(path.join(dir, activeName), 'active');
     await utimes(path.join(dir, activeName), now, now);
 
-    await archiveLogs(dir, 2, now);
+    await new ArchiveSweeper(dir, 2).sweep(now);
 
     const files = await readdir(dir);
     assert.ok(!files.includes('vieux.gz'), 'archive expirée supprimée');
@@ -106,5 +107,5 @@ test('archiveLogs tolerates a directory that has disappeared', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'td-logs-'));
   await rm(dir, { recursive: true, force: true });
 
-  await assert.doesNotReject(archiveLogs(dir, 14));
+  await assert.doesNotReject(new ArchiveSweeper(dir, 14).sweep());
 });

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import test from 'node:test';
 import { ChannelType, Events, MessageFlags } from 'discord.js';
-import { createBot, createIssueFor } from '../../src/bot.ts';
+import { Bot } from '../../src/bot/bot.ts';
 import type { BotSettings } from '../../src/models/bot/bot-settings.ts';
 import type { Turn } from '../../src/models/memory/turn.ts';
 import {
@@ -41,7 +41,7 @@ function setup({
   botSettings?: BotSettings;
 } = {}) {
   const logger = createLogger();
-  const bot = createBot({
+  const bot = new Bot({
     client,
     memory,
     settings: botSettings,
@@ -329,7 +329,7 @@ test('createIssueFor posts through the configured token and repository', async (
     } as Response;
   };
 
-  const createIssue = createIssueFor(settings, fetchFn);
+  const createIssue = Bot.createIssueFor(settings, fetchFn);
   const url = await createIssue('titre', 'corps');
 
   assert.equal(url, 'https://github.com/x/y/issues/1');
@@ -339,7 +339,7 @@ test('createIssueFor posts through the configured token and repository', async (
 });
 
 test('createIssueFor throws without a GitHub token', () => {
-  const createIssue = createIssueFor({ ...settings, githubToken: null });
+  const createIssue = Bot.createIssueFor({ ...settings, githubToken: null });
 
   assert.throws(() => createIssue('titre', 'corps'), /GITHUB_TOKEN is not set/);
 });
@@ -747,7 +747,7 @@ test('messages work without a cached bot user', async () => {
   const logger = createLogger();
   const client = Object.assign(new EventEmitter(), { user: null });
   client.on = EventEmitter.prototype.on.bind(client) as unknown as typeof client.on;
-  const bot = createBot({ client, memory, settings, ask: async () => 'reply', logger });
+  const bot = new Bot({ client, memory, settings, ask: async () => 'reply', logger });
 
   const dm = createFakeMessage({
     content: '  hello  ',
@@ -763,7 +763,7 @@ test('messages work without a cached bot user', async () => {
 test('Discord client errors are logged', () => {
   const client = createFakeClient();
   const logger = createLogger();
-  createBot({ client, memory: createFakeMemory(), settings, logger });
+  new Bot({ client, memory: createFakeMemory(), settings, logger });
 
   client.emit(Events.Error, new Error('ws closed'));
 

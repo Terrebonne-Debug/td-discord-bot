@@ -1,0 +1,90 @@
+import { createReadStream, createWriteStream } from 'node:fs';
+import { readdir, stat, unlink } from 'node:fs/promises';
+import path from 'node:path';
+import { pipeline } from 'node:stream/promises';
+import { createGzip } from 'node:zlib';
+
+/** Fichiers produits par la rotation : bot-AAAA-MM-JJ.log[.n]. */
+const LOG_FILENAME_PATTERN = /^bot-\d{4}-\d{2}-\d{2}\.log(\.\d+)?$/;
+
+const ARCHIVE_SWEEP_INTERVAL_MS = 24 * 3_600_000;
+
+/** La date du jour au format yyyy-MM-dd, alignée sur le pattern %DATE%. */
+function todayAsFilename(now: Date): string {
+  return new Intl.DateTimeFormat('en-CA').format(now);
+}
+
+async function gzipFile(filePath: string): Promise<void> {
+  const gzPath = `${filePath}.gz`;
+  await pipeline(createReadStream(filePath), createGzip(), createWriteStream(gzPath));
+  await unlink(filePath);
+}
+
+/**
+ * Compresses the log files whose rotation is finished and deletes archives
+ * older than the retention. The active file of the day is never touched.
+ * The sweep never rejects: an unreadable file is left for the next pass.
+ */
+export class ArchiveSweeper {
+  /** Nom du fichier journal actif pour une date donnée (yyyy-MM-dd). */
+  static activeLogFilename(date: string): string {
+    return `bot-${date}.log`;
+  }
+
+  /** Un fichier est archivé s'il vient de la rotation et n'est pas l'actif. */
+  static isArchivableLogFile(name: string, activeName: string): boolean {
+    return LOG_FILENAME_PATTERN.test(name) && name !== activeName;
+  }
+
+  #logDir: string;
+  #retentionDays: number;
+
+  constructor(logDir: string, retentionDays: number) {
+    this.#logDir = logDir;
+    this.#retentionDays = retentionDays;
+  }
+
+  async sweep(now: Date = new Date()): Promise<void> {
+    const names = await readdir(this.#logDir).catch(() => [] as string[]);
+    const activeName = ArchiveSweeper.activeLogFilename(todayAsFilename(now));
+    const cutoffMs = now.getTime() - this.#retentionDays * 86_400_000;
+
+    for (const name of names) {
+      const filePath = path.join(this.#logDir, name);
+
+      if (ArchiveSweeper.isArchivableLogFile(name, activeName)) {
+        try {
+          await gzipFile(filePath);
+        } catch {
+          // Fichier inatteignable (rotation concurrente…) : le prochain
+          // balayage réessaiera.
+        }
+        continue;
+      }
+
+      if (name.endsWith('.gz')) {
+        try {
+          if ((await stat(filePath)).mtimeMs < cutoffMs) {
+            await unlink(filePath);
+          }
+        } catch {
+          // L'archive a pu disparaître entre le listage et l'effacement.
+        }
+      }
+    }
+  }
+
+  /**
+   * Sweeps immediately, then daily, without ever blocking the bot's
+   * shutdown. The sweep never rejects, so no handler is needed here.
+   */
+  start(): void {
+    const run = () => {
+      void this.sweep();
+    };
+
+    run();
+    const timer = setInterval(run, ARCHIVE_SWEEP_INTERVAL_MS);
+    timer.unref();
+  }
+}
