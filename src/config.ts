@@ -1,46 +1,12 @@
 import 'dotenv/config';
-
-export type ThinkingMode = 'enabled' | 'disabled';
-export type EffortLevel = 'low' | 'medium' | 'high' | 'max';
-export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+import type { Config } from './models/config/config.ts';
+import type { EffortLevel } from './models/config/effort-level.ts';
+import type { LogLevel } from './models/config/log-level.ts';
+import type { ThinkingMode } from './models/config/thinking-mode.ts';
 
 const THINKING_MODES = new Set<string>(['enabled', 'disabled']);
 const EFFORT_LEVELS = new Set<string>(['low', 'medium', 'high', 'max']);
 const LOG_LEVELS = new Set<string>(['debug', 'info', 'warn', 'error']);
-
-/** Every configuration value, after validation and defaulting. */
-export interface Config {
-  discordToken: string;
-  discordGuildId: string | null;
-
-  deepseekApiKey: string;
-  deepseekBaseUrl: string;
-  deepseekModel: string;
-  deepseekThinking: ThinkingMode;
-  deepseekEffort: EffortLevel;
-  deepseekMaxTokens: number;
-  deepseekTemperature: number | null;
-  deepseekTimeoutMs: number;
-
-  systemPrompt: string;
-  maxHistoryTurns: number;
-  maxPromptChars: number;
-
-  mongodbUri: string | null;
-  mongodbDb: string;
-  mongodbTimeoutMs: number;
-  memoryTtlDays: number | null;
-  memoryEncryptionKey: string | null;
-
-  logLevel: LogLevel;
-  logDir: string;
-  logFileEnabled: boolean;
-  logMaxSizeMb: number;
-  logRetentionDays: number;
-
-  githubToken: string | null;
-  githubRepository: string;
-}
 
 function required(env: NodeJS.ProcessEnv, name: string): string {
   const value = env[name]?.trim();

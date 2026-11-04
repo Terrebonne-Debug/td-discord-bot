@@ -1,10 +1,15 @@
 import { MongoClient } from 'mongodb';
 import type { Collection, Db } from 'mongodb';
 import { decryptTurn, encryptTurn, isEncryptedTurn } from './crypto.ts';
-import type { EncryptedTurn } from './crypto.ts';
 import { createConsoleLogger } from './logging.ts';
-import type { BotLogger } from './logging.ts';
-import type { MemoryMode, Turn } from './types.ts';
+import type { EncryptedTurn } from './models/crypto/encrypted-turn.ts';
+import type { BotLogger } from './models/logging/bot-logger.ts';
+import type { Closeable } from './models/memory/closeable.ts';
+import type { ConversationMemory } from './models/memory/conversation-memory.ts';
+import type { MemoryConnectOptions } from './models/memory/memory-connect-options.ts';
+import type { MemoryDocument } from './models/memory/memory-document.ts';
+import type { MemoryMode } from './models/memory/memory-mode.ts';
+import type { Turn } from './models/memory/turn.ts';
 
 const CHANNEL_COLLECTION = 'channel_memories';
 
@@ -15,32 +20,6 @@ export class MemoryUnavailableError extends Error {
     super('Conversation memory is unavailable.', { cause });
     this.name = 'MemoryUnavailableError';
   }
-}
-
-export interface MemoryConnectOptions {
-  uri: string | null;
-  dbName: string;
-  timeoutMs: number;
-  maxHistoryTurns: number;
-  ttlDays?: number | null;
-  encryptionKey?: Buffer | null;
-  logger?: BotLogger;
-}
-
-/**
- * The conversation-memory API the rest of the bot depends on. MemoryStore
- * implements it, and tests inject plain objects that do too.
- */
-export interface ConversationMemory {
-  readonly mode: MemoryMode;
-  getHistory(key: string): Promise<Turn[]>;
-  appendTurn(key: string, prompt: string, reply: string): Promise<boolean>;
-  close(): Promise<void>;
-}
-
-/** The only thing MemoryStore needs from a MongoDB client after connecting. */
-export interface Closeable {
-  close(): Promise<void>;
 }
 
 function isTurn(value: unknown): value is Turn {
@@ -73,14 +52,6 @@ async function ensureTtlIndexes(db: Db, ttlDays: number | null, logger: BotLogge
   } catch (error) {
     logger.warn(`Could not create the TTL index on ${CHANNEL_COLLECTION}: ${error}`);
   }
-}
-
-/** A document in channel_memories. */
-interface MemoryDocument {
-  _id: string;
-  turns?: Array<Turn | EncryptedTurn>;
-  createdAt?: Date;
-  updatedAt?: Date;
 }
 
 /**

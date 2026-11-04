@@ -6,6 +6,3 @@ export interface Turn {
   role: 'user' | 'assistant';
   content: string;
 }
-
-/** How conversation memory is backed. */
-export type MemoryMode = 'mongo' | 'memory';

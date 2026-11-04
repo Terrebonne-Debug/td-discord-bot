@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { activeLogFilename, archiveLogs, createRootLogger } from '../../src/logging.ts';
-import type { LoggingConfig } from '../../src/logging.ts';
+import type { LoggingConfig } from '../../src/models/logging/logging-config.ts';
 
 function fileConfig(logDir: string, logMaxSizeMb = 1): LoggingConfig {
   return {

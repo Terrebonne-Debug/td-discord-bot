@@ -8,96 +8,26 @@ import {
   TextInputBuilder,
   TextInputStyle,
 } from 'discord.js';
-import type { MessageMentionOptions } from 'discord.js';
 import { askDeepSeek, describeDeepSeekError } from './deepseek.ts';
 import { createGitHubIssue } from './github.ts';
 import { MemoryUnavailableError } from './memory.ts';
-import type { ConversationMemory } from './memory.ts';
 import { createConsoleLogger } from './logging.ts';
-import type { BotLogger } from './logging.ts';
-import type { Turn } from './types.ts';
-import type { BuildInfo } from './version.ts';
+import type { BotSettings } from './models/bot/bot-settings.ts';
+import type { BotClient } from './models/discord/bot-client.ts';
+import type { CommandClient } from './models/discord/command-client.ts';
+import type { InteractionLike } from './models/discord/interaction-like.ts';
+import type { MessageChannelLike } from './models/discord/message-channel-like.ts';
+import type { MessageLike } from './models/discord/message-like.ts';
+import type { ModalSubmitLike } from './models/discord/modal-submit-like.ts';
+import type { ReplyPayload } from './models/discord/reply-payload.ts';
+import type { TypingChannel } from './models/discord/typing-channel.ts';
+import type { BotLogger } from './models/logging/bot-logger.ts';
+import type { ConversationMemory } from './models/memory/conversation-memory.ts';
+import type { Turn } from './models/memory/turn.ts';
+import type { BuildInfo } from './models/version/build-info.ts';
 
 const DISCORD_MESSAGE_LIMIT = 2000;
 const TYPING_INTERVAL_MS = 8_000;
-
-export interface ReplyPayload {
-  content: string;
-  allowedMentions?: MessageMentionOptions;
-  flags?: MessageFlags;
-}
-
-/** A channel that can show the typing indicator. */
-export interface TypingChannel {
-  sendTyping?: () => Promise<unknown>;
-}
-
-/** The slice of a chat-input interaction the bot reads. */
-export interface InteractionLike {
-  commandName: string;
-  channelId: string | null;
-  user: { id: string; username: string };
-  channel: TypingChannel | null;
-  deferred: boolean;
-  replied: boolean;
-  isChatInputCommand(): this is InteractionLike;
-  isModalSubmit(): this is ModalSubmitLike;
-  inGuild(): boolean;
-  options: {
-    getString(name: string, required: true): string;
-    getString(name: string, required?: boolean): string | null;
-  };
-  showModal(modal: unknown): Promise<unknown>;
-  deferReply(): Promise<unknown>;
-  reply(payload: ReplyPayload): Promise<unknown>;
-  editReply(payload: ReplyPayload): Promise<unknown>;
-  followUp(payload: ReplyPayload): Promise<unknown>;
-}
-
-/** The slice of a modal submission the bot reads. */
-export interface ModalSubmitLike {
-  customId: string;
-  user: { id: string; username: string };
-  deferred: boolean;
-  replied: boolean;
-  isChatInputCommand(): this is InteractionLike;
-  isModalSubmit(): this is ModalSubmitLike;
-  fields: { getTextInputValue(name: string): string };
-  deferReply(): Promise<unknown>;
-  reply(payload: ReplyPayload): Promise<unknown>;
-  editReply(payload: ReplyPayload): Promise<unknown>;
-  followUp(payload: ReplyPayload): Promise<unknown>;
-}
-
-/** The slice of a message's channel the bot reads. */
-export interface MessageChannelLike extends TypingChannel {
-  type: ChannelType;
-  send(payload: ReplyPayload): Promise<unknown>;
-}
-
-/** The slice of a Discord message the bot reads. */
-export interface MessageLike {
-  author: { bot: boolean; id: string };
-  system: boolean;
-  channelId: string;
-  content: string;
-  channel: MessageChannelLike;
-  mentions: { users: { has(id: string): boolean } };
-  reply(payload: ReplyPayload): Promise<unknown>;
-}
-
-/** The slice of the Discord client the bot's event handlers need. */
-export interface BotClient {
-  user: { id: string } | null;
-  on(event: string, listener: (...args: any[]) => void): unknown;
-}
-
-/** The settings createBot reads; the full Config satisfies this. */
-export interface BotSettings {
-  maxPromptChars: number;
-  githubToken: string | null;
-  githubRepository: string;
-}
 
 export function splitMessage(text: string, limit = DISCORD_MESSAGE_LIMIT): string[] {
   const normalized = text.trim();
@@ -239,16 +169,6 @@ export function buildFeatureRequestModal(): ModalBuilder {
           .setMaxLength(4000),
       ),
     );
-}
-
-/** The slice of the Discord client registerCommands needs. */
-export interface CommandClient {
-  guilds: {
-    fetch(
-      id: string,
-    ): Promise<{ name: string; commands: { set(commands: readonly unknown[]): Promise<unknown> } }>;
-  };
-  application: { commands: { set(commands: readonly unknown[]): Promise<unknown> } } | null;
 }
 
 export async function registerCommands(

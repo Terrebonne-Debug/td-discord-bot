@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { parseMemoryKey } from '../../src/crypto.ts';
 import { MemoryStore } from '../../src/memory.ts';
-import type { BotLogger } from '../../src/logging.ts';
+import type { BotLogger } from '../../src/models/logging/bot-logger.ts';
 import { createLogger } from '../helpers/fakes.ts';
 import { collection, TEST_MONGODB_URI, withMongo } from '../helpers/mongo.ts';
 

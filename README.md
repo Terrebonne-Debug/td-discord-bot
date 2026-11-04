@@ -106,6 +106,8 @@ Le projet est entièrement écrit en TypeScript (`src/` et `test/`), avec
 imports conservent leur extension `.ts` et `tsc` ne sert qu'à vérifier les
 types (`npm run check`). Seule la syntaxe TypeScript effaçable est utilisée
 (pas d'enum, pas de namespace), ce que garantit `erasableSyntaxOnly`.
+Chaque interface vit dans `src/models/`, une par fichier, regroupée par
+domaine (`discord/`, `memory/`, `logging/`, `config/`, `deepseek/`…).
 
 ## Mémoire
 

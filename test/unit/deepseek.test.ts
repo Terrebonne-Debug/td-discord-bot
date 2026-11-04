@@ -5,7 +5,8 @@ import {
   createDeepSeekClient,
   describeDeepSeekError,
 } from '../../src/deepseek.ts';
-import type { DeepSeekClient, DeepSeekSettings } from '../../src/deepseek.ts';
+import type { DeepSeekClient } from '../../src/models/deepseek/deepseek-client.ts';
+import type { DeepSeekSettings } from '../../src/models/deepseek/deepseek-settings.ts';
 
 function fakeClient(
   content: Array<{ type: string; text?: string; thinking?: string }>,

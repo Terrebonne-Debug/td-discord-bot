@@ -9,7 +9,7 @@ import {
   fileTransportOptions,
   isArchivableLogFile,
 } from '../../src/logging.ts';
-import type { LoggingConfig } from '../../src/logging.ts';
+import type { LoggingConfig } from '../../src/models/logging/logging-config.ts';
 
 function config(overrides: Partial<LoggingConfig> = {}): LoggingConfig {
   return {

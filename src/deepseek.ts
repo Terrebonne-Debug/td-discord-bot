@@ -1,36 +1,9 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { Turn } from './types.ts';
 import { config } from './config.ts';
-
-/** The DeepSeek settings read by askDeepSeek. */
-export interface DeepSeekSettings {
-  deepseekModel: string;
-  deepseekMaxTokens: number;
-  deepseekTemperature: number | null;
-  deepseekThinking: 'enabled' | 'disabled';
-  deepseekEffort: string;
-  systemPrompt: string;
-}
-
-/** The DeepSeek settings read by createDeepSeekClient. */
-export interface DeepSeekClientSettings {
-  deepseekApiKey: string;
-  deepseekBaseUrl: string;
-  deepseekTimeoutMs: number;
-}
-
-/**
- * The slice of the Anthropic SDK the bot uses. Kept minimal so tests can
- * inject a fake client without constructing a full Anthropic instance.
- */
-export interface DeepSeekClient {
-  baseURL: string;
-  messages: {
-    create(
-      params: Record<string, unknown>,
-    ): Promise<{ content: Array<{ type: string; text?: string }> }>;
-  };
-}
+import type { DeepSeekClient } from './models/deepseek/deepseek-client.ts';
+import type { DeepSeekClientSettings } from './models/deepseek/deepseek-client-settings.ts';
+import type { DeepSeekSettings } from './models/deepseek/deepseek-settings.ts';
+import type { Turn } from './models/memory/turn.ts';
 
 export function createDeepSeekClient(settings: DeepSeekClientSettings = config): DeepSeekClient {
   // The real client exposes `messages.create` as overloads, which TypeScript

@@ -1,16 +1,6 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
-import type { Turn } from './types.ts';
-
-/**
- * A turn entry as stored in MongoDB: the {role, content} JSON sealed with
- * AES-256-GCM. The additional authenticated data is the channel id, so an
- * entry copied into another channel's document no longer decrypts.
- */
-export interface EncryptedTurn {
-  iv: string;
-  ciphertext: string;
-  authTag: string;
-}
+import type { EncryptedTurn } from './models/crypto/encrypted-turn.ts';
+import type { Turn } from './models/memory/turn.ts';
 
 export function isEncryptedTurn(value: unknown): value is EncryptedTurn {
   return (

@@ -3,8 +3,9 @@ import { EventEmitter, once } from 'node:events';
 import test from 'node:test';
 import { Client, GatewayIntentBits, Partials } from 'discord.js';
 import { createDefaultClient, installShutdownHandlers, start } from '../../src/start.ts';
-import type { ProcessLike, StartupConfig } from '../../src/start.ts';
-import type { MemoryConnectOptions } from '../../src/memory.ts';
+import type { MemoryConnectOptions } from '../../src/models/memory/memory-connect-options.ts';
+import type { ProcessLike } from '../../src/models/start/process-like.ts';
+import type { StartupConfig } from '../../src/models/start/startup-config.ts';
 import { createFakeClient, createFakeMemory, createLogger } from '../helpers/fakes.ts';
 
 function makeProcess(): EventEmitter & { exits: number[]; exit(code: number): void } {

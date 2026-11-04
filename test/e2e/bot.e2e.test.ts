@@ -10,9 +10,9 @@ import {
 import { createBot, registerCommands } from '../../src/bot.ts';
 import { parseMemoryKey } from '../../src/crypto.ts';
 import { askDeepSeek, createDeepSeekClient } from '../../src/deepseek.ts';
-import type { DeepSeekSettings } from '../../src/deepseek.ts';
 import { MemoryStore } from '../../src/memory.ts';
-import type { Turn } from '../../src/types.ts';
+import type { DeepSeekSettings } from '../../src/models/deepseek/deepseek-settings.ts';
+import type { Turn } from '../../src/models/memory/turn.ts';
 import { startFakeDeepSeek } from '../helpers/fake-deepseek-server.ts';
 import { startFakeDiscord } from '../helpers/fake-discord-server.ts';
 import type { FakeDiscord } from '../helpers/fake-discord-server.ts';

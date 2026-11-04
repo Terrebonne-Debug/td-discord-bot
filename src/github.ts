@@ -1,9 +1,4 @@
-export interface CreateIssueOptions {
-  token: string;
-  repository: string;
-  title: string;
-  body: string;
-}
+import type { CreateIssueOptions } from './models/github/create-issue-options.ts';
 
 /**
  * Creates an issue through the GitHub REST API and returns its URL. Throws
