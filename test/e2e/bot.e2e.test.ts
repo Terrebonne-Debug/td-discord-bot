@@ -7,10 +7,10 @@ import {
   GatewayIntentBits,
   Partials,
 } from 'discord.js';
-import { createBot, registerCommands } from '../../src/bot.ts';
-import { parseMemoryKey } from '../../src/crypto.ts';
-import { askDeepSeek, createDeepSeekClient } from '../../src/deepseek.ts';
-import { MemoryStore } from '../../src/memory.ts';
+import { Bot } from '../../src/bot/bot.ts';
+import { MemoryCipher } from '../../src/crypto/memory-cipher.ts';
+import { DeepSeek } from '../../src/deepseek/deepseek.ts';
+import { MemoryStore } from '../../src/memory/memory-store.ts';
 import type { DeepSeekSettings } from '../../src/models/deepseek/deepseek-settings.ts';
 import type { Turn } from '../../src/models/memory/turn.ts';
 import { startFakeDeepSeek } from '../helpers/fake-deepseek-server.ts';
@@ -19,7 +19,7 @@ import type { FakeDiscord } from '../helpers/fake-discord-server.ts';
 import { createLogger } from '../helpers/fakes.ts';
 import { collection, TEST_MONGODB_URI, withMongo } from '../helpers/mongo.ts';
 
-const TEST_KEY = parseMemoryKey('ab'.repeat(32))!;
+const TEST_KEY = MemoryCipher.parseKey('ab'.repeat(32))!;
 
 const settings: DeepSeekSettings & {
   maxHistoryTurns: number;
@@ -78,16 +78,16 @@ test(
         assert.equal(memory.mode, 'mongo');
 
         const client = makeClient(discord);
-        const anthropic = createDeepSeekClient({
+        const anthropic = DeepSeek.createClient({
           deepseekApiKey: 'test-key',
           deepseekBaseUrl: deepseek.url,
           deepseekTimeoutMs: 5_000,
         });
         const ask = (history: Turn[], prompt: string) =>
-          askDeepSeek(history, prompt, anthropic, settings);
+          new DeepSeek({ settings, client: anthropic }).ask(history, prompt);
 
         const issues: Array<{ title: string; body: string }> = [];
-        createBot({
+        new Bot({
           client,
           memory,
           settings,
@@ -105,7 +105,7 @@ test(
         await ready;
 
         try {
-          await registerCommands(client, settings, logger);
+          await Bot.registerCommands(client, settings, logger);
 
           const guildCommands = await discord.waitForRequest(
             (request) => request.kind === 'guildCommands',
@@ -237,7 +237,7 @@ test(
             timeoutMs: 5_000,
             maxHistoryTurns: 2,
             ttlDays: null,
-            encryptionKey: parseMemoryKey('cd'.repeat(32)),
+            encryptionKey: MemoryCipher.parseKey('cd'.repeat(32)),
             logger,
           });
           try {

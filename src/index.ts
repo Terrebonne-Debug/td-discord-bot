@@ -1,11 +1,16 @@
-import { start } from './start.ts';
-import { config } from './config.ts';
-import { createRootLogger } from './logging.ts';
+// Point d'entrée : un simple amorçage, toute la logique vit dans Launcher.
+import { Launcher } from './startup/launcher.ts';
+import { LoggerFactory } from './logging/logger-factory.ts';
+import { config } from './config/config-loader.ts';
 
-const logger = createRootLogger(config);
+const logger = new LoggerFactory(config).rootLogger();
 
-start({ logger }).catch(async (error: unknown) => {
-  logger.error(`Bot startup failed: ${error instanceof Error ? error.message : String(error)}`);
-  await logger.flush();
-  process.exitCode = 1;
-});
+new Launcher({ logger })
+  .start()
+  .catch(async (error: unknown) => {
+    logger.error(
+      `Bot startup failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    await logger.flush();
+    process.exitCode = 1;
+  });

@@ -1,26 +1,17 @@
 import { MongoClient } from 'mongodb';
 import type { Collection, Db } from 'mongodb';
-import { decryptTurn, encryptTurn, isEncryptedTurn } from './crypto.ts';
-import { createConsoleLogger } from './logging.ts';
-import type { EncryptedTurn } from './models/crypto/encrypted-turn.ts';
-import type { BotLogger } from './models/logging/bot-logger.ts';
-import type { Closeable } from './models/memory/closeable.ts';
-import type { ConversationMemory } from './models/memory/conversation-memory.ts';
-import type { MemoryConnectOptions } from './models/memory/memory-connect-options.ts';
-import type { MemoryDocument } from './models/memory/memory-document.ts';
-import type { MemoryMode } from './models/memory/memory-mode.ts';
-import type { Turn } from './models/memory/turn.ts';
+import { MemoryCipher } from '../crypto/memory-cipher.ts';
+import { LoggerFactory } from '../logging/logger-factory.ts';
+import type { EncryptedTurn } from '../models/crypto/encrypted-turn.ts';
+import type { BotLogger } from '../models/logging/bot-logger.ts';
+import type { Closeable } from '../models/memory/closeable.ts';
+import type { ConversationMemory } from '../models/memory/conversation-memory.ts';
+import type { MemoryConnectOptions } from '../models/memory/memory-connect-options.ts';
+import type { MemoryDocument } from '../models/memory/memory-document.ts';
+import type { MemoryMode } from '../models/memory/memory-mode.ts';
+import type { Turn } from '../models/memory/turn.ts';
 
 const CHANNEL_COLLECTION = 'channel_memories';
-
-export class MemoryUnavailableError extends Error {
-  memoryUnavailable = true;
-
-  constructor(cause: unknown) {
-    super('Conversation memory is unavailable.', { cause });
-    this.name = 'MemoryUnavailableError';
-  }
-}
 
 function isTurn(value: unknown): value is Turn {
   return (
@@ -62,7 +53,7 @@ async function ensureTtlIndexes(db: Db, ttlDays: number | null, logger: BotLogge
  */
 function decryptTurns(
   turns: Array<Turn | EncryptedTurn> | undefined,
-  encryptionKey: Buffer | null,
+  cipher: MemoryCipher | null,
   aad: string,
   logger: BotLogger,
 ): Array<Turn | EncryptedTurn> {
@@ -70,13 +61,13 @@ function decryptTurns(
 
   const decrypted: Array<Turn | EncryptedTurn> = [];
   for (const turn of turns) {
-    if (isEncryptedTurn(turn)) {
-      if (!encryptionKey) {
+    if (MemoryCipher.isEncryptedTurn(turn)) {
+      if (!cipher) {
         logger.warn(`Encrypted turn skipped: no MEMORY_ENCRYPTION_KEY configured (key ${aad}).`);
         continue;
       }
       try {
-        decrypted.push(decryptTurn(turn, encryptionKey, aad));
+        decrypted.push(cipher.decryptTurn(turn, aad));
       } catch {
         logger.warn(`Encrypted turn skipped: decryption failed (key ${aad}).`);
       }
@@ -98,14 +89,14 @@ export class MemoryStore implements ConversationMemory {
   #channels: Map<string, Turn[]>;
   #mode: MemoryMode;
   #logger: BotLogger;
-  #encryptionKey: Buffer | null;
+  #cipher: MemoryCipher | null;
 
   constructor({
     client = null,
     db = null,
     maxHistoryTurns,
     encryptionKey = null,
-    logger = createConsoleLogger(),
+    logger = new LoggerFactory().consoleLogger(),
   }: {
     client?: Closeable | null;
     db?: Db | null;
@@ -119,7 +110,7 @@ export class MemoryStore implements ConversationMemory {
     this.#channels = new Map();
     this.#mode = db ? 'mongo' : 'memory';
     this.#logger = logger;
-    this.#encryptionKey = encryptionKey;
+    this.#cipher = encryptionKey ? new MemoryCipher(encryptionKey) : null;
   }
 
   get mode(): MemoryMode {
@@ -133,7 +124,7 @@ export class MemoryStore implements ConversationMemory {
     maxHistoryTurns,
     ttlDays = null,
     encryptionKey = null,
-    logger = createConsoleLogger(),
+    logger = new LoggerFactory().consoleLogger(),
   }: MemoryConnectOptions): Promise<MemoryStore> {
     if (!uri) {
       logger.warn(
@@ -187,7 +178,7 @@ export class MemoryStore implements ConversationMemory {
       { projection: { turns: { $slice: -this.#maxMessages } } },
     );
     const history = normalizeTurns(
-      decryptTurns(doc?.turns, this.#encryptionKey, key, this.#logger),
+      decryptTurns(doc?.turns, this.#cipher, key, this.#logger),
     );
     this.#logger.debug('Historique lu', {
       key,
@@ -209,10 +200,10 @@ export class MemoryStore implements ConversationMemory {
       }
       this.#channels.set(key, history);
     } else {
-      const turn: Array<Turn | EncryptedTurn> = this.#encryptionKey
+      const turn: Array<Turn | EncryptedTurn> = this.#cipher
         ? [
-            encryptTurn('user', prompt, this.#encryptionKey, key),
-            encryptTurn('assistant', reply, this.#encryptionKey, key),
+            this.#cipher.encryptTurn('user', prompt, key),
+            this.#cipher.encryptTurn('assistant', reply, key),
           ]
         : [
             { role: 'user', content: prompt },

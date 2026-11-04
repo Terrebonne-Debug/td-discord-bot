@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { parseMemoryKey } from '../../src/crypto.ts';
-import { MemoryStore } from '../../src/memory.ts';
+import { MemoryCipher } from '../../src/crypto/memory-cipher.ts';
+import { MemoryStore } from '../../src/memory/memory-store.ts';
 import type { BotLogger } from '../../src/models/logging/bot-logger.ts';
 import { createLogger } from '../helpers/fakes.ts';
 import { collection, TEST_MONGODB_URI, withMongo } from '../helpers/mongo.ts';
 
-const TEST_KEY = parseMemoryKey('ab'.repeat(32))!;
+const TEST_KEY = MemoryCipher.parseKey('ab'.repeat(32))!;
 
 async function connect({
   dbName = 'unused',

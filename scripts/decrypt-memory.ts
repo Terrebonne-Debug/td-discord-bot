@@ -9,13 +9,13 @@
 
 import 'dotenv/config';
 import { MongoClient } from 'mongodb';
-import { decryptTurn, isEncryptedTurn, parseMemoryKey } from '../src/crypto.ts';
+import { MemoryCipher } from '../src/crypto/memory-cipher.ts';
 import type { Turn } from '../src/models/memory/turn.ts';
 
 const channelId = process.argv[2];
 const uri = process.env.MONGODB_URI?.trim();
 const dbName = process.env.MONGODB_DB?.trim() || 'td-discord-bot';
-const key = parseMemoryKey(process.env.MEMORY_ENCRYPTION_KEY?.trim() || null);
+const key = MemoryCipher.parseKey(process.env.MEMORY_ENCRYPTION_KEY?.trim() || null);
 
 type PrintableTurn = Turn | { role: string; content: string };
 
@@ -23,12 +23,12 @@ function printableTurns(turns: unknown, aad: string): PrintableTurn[] {
   if (!Array.isArray(turns)) return [];
 
   return turns.map((turn): PrintableTurn => {
-    if (isEncryptedTurn(turn)) {
+    if (MemoryCipher.isEncryptedTurn(turn)) {
       if (!key) {
         return { role: '?', content: '<entrée chiffrée sans clé (définir MEMORY_ENCRYPTION_KEY)>' };
       }
       try {
-        return decryptTurn(turn, key, aad);
+        return new MemoryCipher(key).decryptTurn(turn, aad);
       } catch {
         return { role: '?', content: '<déchiffrement impossible (entrée altérée ou mauvaise clé)>' };
       }

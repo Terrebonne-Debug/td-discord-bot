@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createGitHubIssue } from '../../src/github.ts';
+import { GitHubIssues } from '../../src/github/github-issues.ts';
 
 function fakeResponse(status: number, body: unknown) {
   return {
@@ -10,14 +10,14 @@ function fakeResponse(status: number, body: unknown) {
   } as Response;
 }
 
-test('createGitHubIssue posts to the API and returns the issue URL', async () => {
+test('GitHubIssues posts to the API and returns the issue URL', async () => {
   const calls: Array<{ url: string; init: RequestInit }> = [];
   const fetchFn = async (input: string | Request | URL, init: RequestInit = {}) => {
     calls.push({ url: String(input), init });
     return fakeResponse(201, { html_url: 'https://github.com/owner/repo/issues/42' });
   };
 
-  const url = await createGitHubIssue(
+  const issues = new GitHubIssues(
     {
       token: 'gh-token',
       repository: 'owner/repo',
@@ -26,6 +26,7 @@ test('createGitHubIssue posts to the API and returns the issue URL', async () =>
     },
     fetchFn,
   );
+  const url = await issues.createIssue();
 
   assert.equal(url, 'https://github.com/owner/repo/issues/42');
   assert.equal(calls.length, 1);
@@ -41,14 +42,13 @@ test('createGitHubIssue posts to the API and returns the issue URL', async () =>
   });
 });
 
-test('createGitHubIssue throws when the API rejects the request', async () => {
+test('GitHubIssues throws when the API rejects the request', async () => {
   const fetchFn = async () => fakeResponse(422, { message: 'Validation Failed' });
 
-  await assert.rejects(
-    createGitHubIssue(
-      { token: 'bad-token', repository: 'owner/repo', title: 'x', body: 'y' },
-      fetchFn,
-    ),
-    /GitHub API error: 422/,
+  const issues = new GitHubIssues(
+    { token: 'bad-token', repository: 'owner/repo', title: 'x', body: 'y' },
+    fetchFn,
   );
+
+  await assert.rejects(issues.createIssue(), /GitHub API error: 422/);
 });

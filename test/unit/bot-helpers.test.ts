@@ -1,12 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {
-  describeRequestError,
-  splitMessage,
-  startTyping,
-  stripBotMention,
-  registerCommands,
-} from '../../src/bot.ts';
+import { Bot } from '../../src/bot/bot.ts';
 import { createFakeClient, createLogger } from '../helpers/fakes.ts';
 
 function delay(ms: number): Promise<void> {
@@ -14,25 +8,25 @@ function delay(ms: number): Promise<void> {
 }
 
 test('splitMessage handles empty, short and exactly-limit messages', () => {
-  assert.deepEqual(splitMessage('   '), ['The model returned an empty response.']);
-  assert.deepEqual(splitMessage('  hello  '), ['hello']);
+  assert.deepEqual(Bot.splitMessage('   '), ['The model returned an empty response.']);
+  assert.deepEqual(Bot.splitMessage('  hello  '), ['hello']);
 
   const exact = 'a'.repeat(2000);
-  assert.deepEqual(splitMessage(exact), [exact]);
+  assert.deepEqual(Bot.splitMessage(exact), [exact]);
 });
 
 test('splitMessage prefers newlines, then spaces, then hard cuts', () => {
   const withNewline = `${'a'.repeat(1500)}\n${'b'.repeat(1500)}`;
-  assert.deepEqual(splitMessage(withNewline), ['a'.repeat(1500), 'b'.repeat(1500)]);
+  assert.deepEqual(Bot.splitMessage(withNewline), ['a'.repeat(1500), 'b'.repeat(1500)]);
 
   const withSpace = `${'a'.repeat(1500)} ${'b'.repeat(1500)}`;
-  assert.deepEqual(splitMessage(withSpace), ['a'.repeat(1500), 'b'.repeat(1500)]);
+  assert.deepEqual(Bot.splitMessage(withSpace), ['a'.repeat(1500), 'b'.repeat(1500)]);
 
   const noSeparator = 'a'.repeat(2500);
-  assert.deepEqual(splitMessage(noSeparator), ['a'.repeat(2000), 'a'.repeat(500)]);
+  assert.deepEqual(Bot.splitMessage(noSeparator), ['a'.repeat(2000), 'a'.repeat(500)]);
 
   const manyChunks = 'c'.repeat(4500);
-  assert.deepEqual(splitMessage(manyChunks), [
+  assert.deepEqual(Bot.splitMessage(manyChunks), [
     'c'.repeat(2000),
     'c'.repeat(2000),
     'c'.repeat(500),
@@ -41,35 +35,35 @@ test('splitMessage prefers newlines, then spaces, then hard cuts', () => {
 
 test('splitMessage falls back to a hard cut when early separators are too far left', () => {
   const text = `${'a'.repeat(500)}\n${'b'.repeat(2500)}`;
-  const chunks = splitMessage(text);
+  const chunks = Bot.splitMessage(text);
 
   assert.equal(chunks[0].length, 2000);
   assert.equal(chunks.join(''), text);
 });
 
 test('stripBotMention removes mentions and trims whitespace', () => {
-  assert.equal(stripBotMention('<@!bot-1> hello', 'bot-1'), 'hello');
-  assert.equal(stripBotMention('<@bot-1> hello <@bot-1>', 'bot-1'), 'hello');
-  assert.equal(stripBotMention('  hello  ', null), 'hello');
-  assert.equal(stripBotMention('  hello  ', undefined), 'hello');
+  assert.equal(Bot.stripBotMention('<@!bot-1> hello', 'bot-1'), 'hello');
+  assert.equal(Bot.stripBotMention('<@bot-1> hello <@bot-1>', 'bot-1'), 'hello');
+  assert.equal(Bot.stripBotMention('  hello  ', null), 'hello');
+  assert.equal(Bot.stripBotMention('  hello  ', undefined), 'hello');
 });
 
 test('describeRequestError prioritises memory failures', () => {
   assert.match(
-    describeRequestError({ memoryUnavailable: true }),
+    Bot.describeRequestError({ memoryUnavailable: true }),
     /Conversation memory is temporarily unavailable/,
   );
-  assert.match(describeRequestError({ status: 429 }), /rate limiting/);
+  assert.match(Bot.describeRequestError({ status: 429 }), /rate limiting/);
 });
 
 test('startTyping is a no-op without a usable channel', () => {
-  assert.equal(typeof startTyping(null), 'function');
-  assert.doesNotThrow(() => startTyping({})());
+  assert.equal(typeof Bot.startTyping(null), 'function');
+  assert.doesNotThrow(() => Bot.startTyping({})());
 });
 
 test('startTyping sends immediately and repeats until stopped', async () => {
   let calls = 0;
-  const stop = startTyping(
+  const stop = Bot.startTyping(
     {
       sendTyping: async () => {
         calls += 1;
@@ -91,7 +85,7 @@ test('startTyping sends immediately and repeats until stopped', async () => {
 });
 
 test('startTyping swallows sendTyping failures', async () => {
-  const stop = startTyping(
+  const stop = Bot.startTyping(
     {
       sendTyping: async () => {
         throw new Error('typing failed');
@@ -115,7 +109,7 @@ test('registerCommands registers every command in the guild only', async () => {
     maxPromptChars: 4000,
   };
 
-  await registerCommands(client, settings, logger);
+  await Bot.registerCommands(client, settings, logger);
 
   assert.equal(client.fetchedGuildId, 'guild-1');
   assert.equal(client.guildCommands.length, 5);
@@ -135,7 +129,7 @@ test('registerCommands registers every command globally without a guild id', asy
     maxPromptChars: 10_000,
   };
 
-  await registerCommands(client, settings, logger);
+  await Bot.registerCommands(client, settings, logger);
 
   assert.equal(client.fetchedGuildId, undefined);
   assert.deepEqual(
@@ -153,7 +147,7 @@ test('registerCommands logs instead of throwing when Discord rejects the update'
   };
   const logger = createLogger();
 
-  await registerCommands(client, { discordGuildId: 'guild-1', maxPromptChars: 4000 }, logger);
+  await Bot.registerCommands(client, { discordGuildId: 'guild-1', maxPromptChars: 4000 }, logger);
 
   assert.match(logger.messages('error')[0], /Could not register slash commands: discord down/);
 });
