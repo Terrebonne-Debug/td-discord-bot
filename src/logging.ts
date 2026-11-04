@@ -6,22 +6,9 @@ import { createGzip } from 'node:zlib';
 import winston from 'winston';
 import DailyRotateFile from 'winston-daily-rotate-file';
 import { config } from './config.ts';
-import type { LogLevel } from './config.ts';
-
-/**
- * The logger interface the bot depends on. winston is an implementation
- * detail of this module: everywhere else only receives a BotLogger.
- */
-export interface BotLogger {
-  debug(message: string, fields?: Record<string, unknown>): void;
-  info(message: string, fields?: Record<string, unknown>): void;
-  warn(message: string, fields?: Record<string, unknown>): void;
-  error(message: string, fields?: Record<string, unknown>): void;
-  /** Returns a logger whose records carry the given context (scope, key…). */
-  child(bindings: Record<string, unknown>): BotLogger;
-  /** Flushes pending writes before shutdown. */
-  flush(): Promise<void>;
-}
+import type { LogLevel } from './models/config/log-level.ts';
+import type { BotLogger } from './models/logging/bot-logger.ts';
+import type { LoggingConfig } from './models/logging/logging-config.ts';
 
 const LEVEL_ORDER: Record<LogLevel, number> = { error: 0, warn: 1, info: 2, debug: 3 };
 
@@ -56,15 +43,6 @@ export function createConsoleLogger(threshold: LogLevel = config.logLevel): BotL
     flush: async () => {},
   };
   return logger;
-}
-
-/** The configuration values the logging module reads; Config satisfies it. */
-export interface LoggingConfig {
-  logLevel: LogLevel;
-  logDir: string;
-  logFileEnabled: boolean;
-  logMaxSizeMb: number;
-  logRetentionDays: number;
 }
 
 /**

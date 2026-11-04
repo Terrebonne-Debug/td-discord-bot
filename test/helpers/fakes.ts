@@ -1,18 +1,16 @@
 import { EventEmitter } from 'node:events';
 import { ChannelType, Events } from 'discord.js';
-import type {
-  BotClient,
-  InteractionLike,
-  MessageChannelLike,
-  MessageLike,
-  ModalSubmitLike,
-  ReplyPayload,
-  TypingChannel,
-} from '../../src/bot.ts';
-import type { BotLogger } from '../../src/logging.ts';
-import type { ConversationMemory } from '../../src/memory.ts';
-import type { StartupClient } from '../../src/start.ts';
-import type { Turn } from '../../src/types.ts';
+import type { BotClient } from '../../src/models/discord/bot-client.ts';
+import type { InteractionLike } from '../../src/models/discord/interaction-like.ts';
+import type { MessageChannelLike } from '../../src/models/discord/message-channel-like.ts';
+import type { MessageLike } from '../../src/models/discord/message-like.ts';
+import type { ModalSubmitLike } from '../../src/models/discord/modal-submit-like.ts';
+import type { ReplyPayload } from '../../src/models/discord/reply-payload.ts';
+import type { TypingChannel } from '../../src/models/discord/typing-channel.ts';
+import type { BotLogger } from '../../src/models/logging/bot-logger.ts';
+import type { ConversationMemory } from '../../src/models/memory/conversation-memory.ts';
+import type { Turn } from '../../src/models/memory/turn.ts';
+import type { StartupClient } from '../../src/models/start/startup-client.ts';
 
 export const BOT_USER_ID = 'bot-user';
 

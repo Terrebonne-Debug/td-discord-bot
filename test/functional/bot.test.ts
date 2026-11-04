@@ -3,8 +3,8 @@ import { EventEmitter } from 'node:events';
 import test from 'node:test';
 import { ChannelType, Events, MessageFlags } from 'discord.js';
 import { createBot, createIssueFor } from '../../src/bot.ts';
-import type { BotSettings } from '../../src/bot.ts';
-import type { Turn } from '../../src/types.ts';
+import type { BotSettings } from '../../src/models/bot/bot-settings.ts';
+import type { Turn } from '../../src/models/memory/turn.ts';
 import {
   BOT_USER_ID,
   createFakeClient,

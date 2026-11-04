@@ -1,12 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-
-/** What /version reports about this build. */
-export interface BuildInfo {
-  version: string;
-  commit: string;
-}
+import type { BuildInfo } from './models/version/build-info.ts';
 
 function defaultRunGit(args: string[], cwd: string): string {
   return execFileSync('git', args, { cwd, encoding: 'utf8' }).toString();

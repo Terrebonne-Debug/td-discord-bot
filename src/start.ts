@@ -1,47 +1,18 @@
 import { Client, Events, GatewayIntentBits, Partials } from 'discord.js';
 import { config } from './config.ts';
-import type { LogLevel } from './config.ts';
 import { parseMemoryKey } from './crypto.ts';
 import { MemoryStore } from './memory.ts';
-import type { ConversationMemory, MemoryConnectOptions } from './memory.ts';
 import { createBot, registerCommands } from './bot.ts';
-import type { BotClient } from './bot.ts';
 import { createConsoleLogger, createRootLogger } from './logging.ts';
-import type { BotLogger } from './logging.ts';
 import { readBuildInfo } from './version.ts';
-
-/** The configuration values start() reads; the full Config satisfies this. */
-export interface StartupConfig {
-  discordToken: string;
-  discordGuildId: string | null;
-  deepseekModel: string;
-  deepseekBaseUrl: string;
-  deepseekThinking: string;
-  deepseekEffort: string;
-  maxHistoryTurns: number;
-  maxPromptChars: number;
-  mongodbUri: string | null;
-  mongodbDb: string;
-  mongodbTimeoutMs: number;
-  memoryTtlDays: number | null;
-  memoryEncryptionKey: string | null;
-  logLevel: LogLevel;
-  githubToken: string | null;
-  githubRepository: string;
-}
-
-/** The slice of the Discord client the startup flow needs. */
-export interface StartupClient {
-  once(event: string, listener: (...args: any[]) => void): unknown;
-  login(token: string): Promise<unknown>;
-  destroy(): void;
-}
-
-/** The slice of process installShutdownHandlers needs. */
-export interface ProcessLike {
-  on(event: string, listener: (...args: any[]) => void): unknown;
-  exit(code: number): void;
-}
+import type { LogLevel } from './models/config/log-level.ts';
+import type { BotClient } from './models/discord/bot-client.ts';
+import type { BotLogger } from './models/logging/bot-logger.ts';
+import type { ConversationMemory } from './models/memory/conversation-memory.ts';
+import type { MemoryConnectOptions } from './models/memory/memory-connect-options.ts';
+import type { ProcessLike } from './models/start/process-like.ts';
+import type { StartupClient } from './models/start/startup-client.ts';
+import type { StartupConfig } from './models/start/startup-config.ts';
 
 export function createDefaultClient(): Client {
   return new Client({

@@ -10,7 +10,7 @@
 import 'dotenv/config';
 import { MongoClient } from 'mongodb';
 import { decryptTurn, isEncryptedTurn, parseMemoryKey } from '../src/crypto.ts';
-import type { Turn } from '../src/types.ts';
+import type { Turn } from '../src/models/memory/turn.ts';
 
 const channelId = process.argv[2];
 const uri = process.env.MONGODB_URI?.trim();
