@@ -51,13 +51,17 @@ implémentent les interfaces de `src/models/` : aucune bibliothèque de mock.
 
 ## CI
 
-Le workflow `.github/workflows/ci.yml` (runner auto-hébergé `mkII`) exécute :
+Le workflow `.github/workflows/ci.yml` (runner auto-hébergé `mkII`) roule en
+**un seul job**, dans un ordre qui échoue vite :
 
-1. `basics` — `npm ci` puis `npm run check` ;
-2. `security` — balayage CVE des dépendances avec osv-scanner (version
-   épinglée) contre la base OSV : toute vulnérabilité connue fait échouer la
-   CI ; les faux positifs se déclarent dans un `osv-scanner.toml` ;
-3. `tests` — suite complète avec un MongoDB isolé et les seuils de couverture.
+1. **Node.js** — un seul `setup-node`, piloté par `.nvmrc` à la racine (la
+   version est configurée une fois, dans le dépôt) ; le cache d'outils du
+   runner évite le téléchargement dès la deuxième exécution ;
+2. `npm ci` puis `npm run check` (types) ;
+3. balayage CVE des dépendances avec osv-scanner (version épinglée) contre la
+   base OSV : toute vulnérabilité connue fait échouer la CI ; les faux
+   positifs se déclarent dans un `osv-scanner.toml` ;
+4. suite complète avec un MongoDB isolé et les seuils de couverture.
 
 ## Secrets
 

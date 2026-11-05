@@ -14,18 +14,21 @@ permissions:
   contents: read
 
 jobs:
-  basics:
-    name: Basic checks
+  ci:
+    name: Typecheck, CVE scan, tests and 100% coverage
     runs-on: [self-hosted, Linux, X64, discord-bot]
-    timeout-minutes: 10
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
+      # Node est configuré une seule fois, via .nvmrc à la racine : un seul
+      # setup-node pour tout le flot (le cache d'outils du runner auto-hébergé
+      # évite le téléchargement dès la deuxième exécution).
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Install dependencies
@@ -34,39 +37,13 @@ jobs:
       - name: Typecheck sources and tests
         run: npm run check
 
-  security:
-    name: CVE scan
-    runs-on: [self-hosted, Linux, X64, discord-bot]
-    timeout-minutes: 10
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      # Scan package-lock.json against the OSV database (CVE + GHSA).
-      # The step fails when a known vulnerability is found; to ignore a
-      # confirmed false positive, add an osv-scanner.toml to the repository.
-      # Bump the version tag here when a new osv-scanner release comes out.
+      # Balaye package-lock.json contre la base OSV (CVE + GHSA). L'étape
+      # échoue quand une vulnérabilité connue est trouvée ; pour ignorer un
+      # faux positif confirmé, ajouter un osv-scanner.toml au dépôt. Mettre à
+      # jour la balise de version aux nouvelles releases d'osv-scanner.
       - name: Scan dependencies for known CVEs
         run: |
           docker run --rm -v "$PWD:/src" ghcr.io/google/osv-scanner:v2.7.0 scan --recursive /src
-
-  tests:
-    name: Tests and 100% coverage
-    needs: basics
-    runs-on: [self-hosted, Linux, X64, discord-bot]
-    timeout-minutes: 20
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Start an isolated MongoDB
         run: |
