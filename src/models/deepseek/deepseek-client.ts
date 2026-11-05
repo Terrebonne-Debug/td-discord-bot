@@ -1,6 +1,9 @@
 /**
- * The slice of the Anthropic SDK the bot uses. Kept minimal so tests can
- * inject a fake client without constructing a full Anthropic instance.
+ * La tranche du SDK Anthropic que le bot utilise. Gardée minimale pour que
+ * les tests puissent injecter un faux client sans construire une instance
+ * Anthropic complète.
+ *
+ * @interface
  */
 export interface DeepSeekClient {
   baseURL: string;

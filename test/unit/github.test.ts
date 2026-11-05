@@ -10,7 +10,7 @@ function fakeResponse(status: number, body: unknown) {
   } as Response;
 }
 
-test('GitHubIssues posts to the API and returns the issue URL', async () => {
+test('GitHubIssues publie à l\'API et renvoie l\'URL de l\'issue', async () => {
   const calls: Array<{ url: string; init: RequestInit }> = [];
   const fetchFn = async (input: string | Request | URL, init: RequestInit = {}) => {
     calls.push({ url: String(input), init });
@@ -42,7 +42,7 @@ test('GitHubIssues posts to the API and returns the issue URL', async () => {
   });
 });
 
-test('GitHubIssues throws when the API rejects the request', async () => {
+test('GitHubIssues lève une erreur quand l\'API rejette la requête', async () => {
   const fetchFn = async () => fakeResponse(422, { message: 'Validation Failed' });
 
   const issues = new GitHubIssues(
@@ -50,5 +50,5 @@ test('GitHubIssues throws when the API rejects the request', async () => {
     fetchFn,
   );
 
-  await assert.rejects(issues.createIssue(), /GitHub API error: 422/);
+  await assert.rejects(issues.createIssue(), /Erreur de l'API GitHub : 422/);
 });

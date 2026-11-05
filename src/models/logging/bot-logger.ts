@@ -1,6 +1,9 @@
 /**
- * The logger interface the bot depends on. winston is an implementation
- * detail of src/logging.ts: everywhere else only receives a BotLogger.
+ * L'interface de journal dont le bot dépend. winston est un détail
+ * d'implémentation de src/logging/ : partout ailleurs, seul un BotLogger
+ * est reçu.
+ *
+ * @interface
  */
 export interface BotLogger {
   debug(message: string, fields?: Record<string, unknown>): void;

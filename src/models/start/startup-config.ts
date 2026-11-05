@@ -1,6 +1,11 @@
 import type { LogLevel } from '../config/log-level.ts';
 
-/** The configuration values start() reads; the full Config satisfies this. */
+/**
+ * Les valeurs de configuration que Launcher.start lit ; la Config complète
+ * les satisfait.
+ *
+ * @interface
+ */
 export interface StartupConfig {
   discordToken: string;
   discordGuildId: string | null;

@@ -1,7 +1,10 @@
 /**
- * A turn entry as stored in MongoDB: the {role, content} JSON sealed with
- * AES-256-GCM. The additional authenticated data is the channel id, so an
- * entry copied into another channel's document no longer decrypts.
+ * Une entrée de tour telle que stockée dans MongoDB : le JSON {role, content}
+ * scellé avec AES-256-GCM. Les données authentifiées supplémentaires sont
+ * l'identifiant du canal : une entrée copiée dans le document d'un autre
+ * canal ne se déchiffre plus.
+ *
+ * @interface
  */
 export interface EncryptedTurn {
   iv: string;

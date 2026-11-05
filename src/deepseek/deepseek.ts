@@ -1,21 +1,32 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { config } from '../config/config-loader.ts';
+import { ConfigLoader } from '../config/config-loader.ts';
 import type { DeepSeekClient } from '../models/deepseek/deepseek-client.ts';
 import type { DeepSeekClientSettings } from '../models/deepseek/deepseek-client-settings.ts';
 import type { DeepSeekSettings } from '../models/deepseek/deepseek-settings.ts';
 import type { Turn } from '../models/memory/turn.ts';
 
 /**
- * Sends conversations to DeepSeek's Anthropic-compatible endpoint and returns
- * the concatenated text blocks. Thinking blocks are deliberately not returned
- * or stored in history.
+ * Envoie les conversations au point d'accès compatible Anthropic de DeepSeek
+ * et renvoie les blocs de texte concaténés. Les blocs de réflexion ne sont
+ * volontairement ni renvoyés ni conservés dans l'historique.
+ *
+ * @class DeepSeek
  */
 export class DeepSeek {
-  /** Builds the underlying Anthropic SDK client from the connection settings. */
-  static createClient(settings: DeepSeekClientSettings = config): DeepSeekClient {
-    // The real client exposes `messages.create` as overloads, which TypeScript
-    // cannot narrow to the single signature the bot calls; the cast is safe
-    // because ask always calls the non-streaming form.
+  /**
+   * Construit le client SDK Anthropic sous-jacent depuis les réglages de
+   * connexion.
+   *
+   * @static
+   * @param {DeepSeekClientSettings} settings - Clé, URL de base et délai.
+   * @returns {DeepSeekClient} Le client prêt à l'emploi.
+   */
+  static createClient(settings: DeepSeekClientSettings = ConfigLoader.load(process.env)): DeepSeekClient {
+    /**
+     * Le vrai client expose `messages.create` sous forme de surcharges que
+     * TypeScript ne peut pas réduire à la seule signature appelée par le bot ;
+     * la conversion est sûre car ask appelle toujours la forme non streamée.
+     */
     return new Anthropic({
       apiKey: settings.deepseekApiKey,
       baseURL: settings.deepseekBaseUrl,
@@ -24,40 +35,53 @@ export class DeepSeek {
     }) as unknown as DeepSeekClient;
   }
 
-  /** Maps API failures to messages the bot can show on Discord. */
+  /**
+   * Traduit les échecs de l'API en messages affichables sur Discord.
+   *
+   * @static
+   * @param {unknown} error - Le rejet brut de l'API ou du SDK.
+   * @returns {string} Le message destiné à l'utilisateur.
+   */
   static describeError(error: unknown): string {
     const apiError = error as { name?: string; status?: number } | null | undefined;
 
     if (apiError?.name === 'APIConnectionTimeoutError') {
-      return 'DeepSeek took too long to respond. Please try again.';
+      return 'DeepSeek a mis trop de temps à répondre. Réessaie bientôt.';
     }
 
     switch (apiError?.status) {
       case 400:
-        return 'DeepSeek rejected the request. Check DEEPSEEK_MODEL and the other DeepSeek settings.';
+        return 'DeepSeek a rejeté la requête. Vérifie DEEPSEEK_MODEL et les autres réglages DeepSeek.';
       case 401:
-        return 'DeepSeek rejected the API key. Check DEEPSEEK_API_KEY in .env.';
+        return 'DeepSeek a rejeté la clé API. Vérifie DEEPSEEK_API_KEY dans .env.';
       case 402:
-        return 'The DeepSeek account has insufficient balance.';
+        return 'Le compte DeepSeek a un solde insuffisant.';
       case 403:
-        return 'DeepSeek refused the request. Check the API key permissions.';
+        return 'DeepSeek a refusé la requête. Vérifie les permissions de la clé API.';
       case 404:
-        return 'The configured DeepSeek endpoint or model was not found.';
+        return "Le point d'accès ou le modèle DeepSeek configuré est introuvable.";
       case 429:
-        return 'DeepSeek is rate limiting requests. Try again shortly.';
+        return 'DeepSeek limite le débit des requêtes. Réessaie bientôt.';
       default:
         if ((apiError?.status ?? 0) >= 500) {
-          return 'DeepSeek is temporarily unavailable. Try again shortly.';
+          return 'DeepSeek est momentanément indisponible. Réessaie bientôt.';
         }
-        return 'The DeepSeek request failed. Check the bot logs and try again.';
+        return 'La requête DeepSeek a échoué. Consulte les journaux du bot et réessaie.';
     }
   }
 
+  /** @type {DeepSeekClient} Le client SDK sous-jacent. */
   #client: DeepSeekClient;
+  /** @type {DeepSeekSettings} Les réglages de génération. */
   #settings: DeepSeekSettings;
 
+  /**
+   * @constructor
+   * @param {DeepSeekSettings} [settings=config] - Réglages de génération.
+   * @param {DeepSeekClient} [client=DeepSeek.createClient()] - Client SDK.
+   */
   constructor({
-    settings = config,
+    settings = ConfigLoader.load(process.env),
     client = DeepSeek.createClient(),
   }: {
     settings?: DeepSeekSettings;
@@ -67,6 +91,14 @@ export class DeepSeek {
     this.#client = client;
   }
 
+  /**
+   * Interroge le modèle avec un historique et une question.
+   *
+   * @method
+   * @param {Turn[]} history - Les tours précédents de la conversation.
+   * @param {string} prompt - La question de l'utilisateur.
+   * @returns {Promise<string>} Le texte de la réponse, jamais vide.
+   */
   async ask(history: Turn[], prompt: string): Promise<string> {
     const params: Record<string, unknown> = {
       model: this.#settings.deepseekModel,
@@ -81,7 +113,7 @@ export class DeepSeek {
 
     if (this.#settings.deepseekThinking === 'enabled') {
       params.thinking = { type: 'enabled' };
-      // DeepSeek supports output_config.effort on its Anthropic-compatible route.
+      /** DeepSeek prend en charge output_config.effort sur sa route compatible Anthropic. */
       params.output_config = { effort: this.#settings.deepseekEffort };
     } else {
       params.thinking = { type: 'disabled' };
@@ -94,9 +126,9 @@ export class DeepSeek {
       .join('\n')
       .trim();
 
-    return text || 'The model returned an empty response.';
+    return text || 'Le modèle a renvoyé une réponse vide.';
   }
 }
 
-/** The shared instance used as the bot's default model. */
+/** L'instance partagée utilisée comme modèle par défaut du bot. */
 export const defaultDeepSeek = new DeepSeek();

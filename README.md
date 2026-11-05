@@ -15,6 +15,17 @@ qui a créé ce projet :
 
 Tout se modifie dans `.env`, sans toucher au code.
 
+## Documentation
+
+La documentation technique complète vit dans [`documentation/`](documentation/) :
+
+- [architecture](documentation/architecture.md) — structure du code, patrons Commande et Stratégie, injection de dépendances ;
+- [configuration](documentation/configuration.md) — toutes les variables d'environnement ;
+- [commandes](documentation/commandes.md) — comportements détaillés des commandes slash et des mentions ;
+- [memoire](documentation/memoire.md) — mémoire des canaux, chiffrement, expiration, déchiffrement manuel ;
+- [journalisation](documentation/journalisation.md) — journaux, rotation, archives gzip, rétention ;
+- [developpement](documentation/developpement.md) — conventions, tests, CI, secrets.
+
 ## Fonctionnalités
 
 - Mentionnez le bot dans un salon de serveur, ou envoyez-lui un MP.
@@ -107,7 +118,14 @@ imports conservent leur extension `.ts` et `tsc` ne sert qu'à vérifier les
 types (`npm run check`). Seule la syntaxe TypeScript effaçable est utilisée
 (pas d'enum, pas de namespace), ce que garantit `erasableSyntaxOnly`.
 Chaque interface vit dans `src/models/`, une par fichier, regroupée par
-domaine (`discord/`, `memory/`, `logging/`, `config/`, `deepseek/`…).
+domaine (`discord/`, `memory/`, `logging/`, `config/`, `deepseek/`…) ; chaque
+fichier de `src/` est une classe (aucune fonction libre — les utilitaires sont
+des méthodes statiques, les classes d'erreur vivent dans `src/errors/`).
+`src/bot/` applique deux patrons de conception : chaque commande slash est
+une classe derrière un `CommandDispatcher` (patron **Commande**), et le flux
+`/q`/mention partage un `ConversationService` paramétré par des
+`ConversationStrategy` (patron **Stratégie**) — ajouter une commande ou une
+source de conversation ne modifie plus la façade `Bot`.
 
 ## Mémoire
 

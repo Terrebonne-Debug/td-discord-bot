@@ -24,7 +24,13 @@ export interface FakeLogEntry {
 
 export interface Logger extends BotLogger {
   entries: FakeLogEntry[];
-  /** The messages recorded at the given level, in order. */
+  /**
+   * Les messages enregistrés au niveau donné, dans l'ordre.
+   *
+   * @method
+   * @param {FakeLogLevel} level - Le niveau demandé.
+   * @returns {string[]} Les messages de ce niveau.
+   */
   messages(level: FakeLogLevel): string[];
 }
 
@@ -126,7 +132,7 @@ function makeFailureCounter(failures: Record<string, number>) {
   return (method: string) => {
     if (remaining[method] > 0) {
       remaining[method] -= 1;
-      throw new Error(`${method} failed`);
+      throw new Error(`${method} a échoué`);
     }
   };
 }
@@ -365,7 +371,7 @@ export function createFakeMemory({
   const fail = (method: string) => {
     if (remaining[method] > 0) {
       remaining[method] -= 1;
-      throw new Error(`${method} failed`);
+      throw new Error(`${method} a échoué`);
     }
   };
 

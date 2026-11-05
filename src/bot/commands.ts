@@ -6,7 +6,7 @@ import {
   TextInputStyle,
 } from 'discord.js';
 
-/** Single source of truth for the slash commands: registration and help. */
+/** Source unique des commandes slash : enregistrement et aide. */
 const COMMANDS: Array<{ name: string; description: string; help: string }> = [
   {
     name: 'q',
@@ -36,10 +36,19 @@ const COMMANDS: Array<{ name: string; description: string; help: string }> = [
 ];
 
 /**
- * Builds the Discord payloads of every slash command, their help text and
- * the /feature-request modal, all derived from the same definitions.
+ * Construit les charges Discord de chaque commande slash, leur texte d'aide
+ * et le modal de `/feature-request`, le tout dérivé des mêmes définitions.
+ *
+ * @class Commands
  */
 export class Commands {
+  /**
+   * Les commandes prêtes à être enregistrées auprès de Discord.
+   *
+   * @static
+   * @param {{ maxPromptChars: number }} settings - Les réglages du bot.
+   * @returns {object[]} Les charges JSON des commandes.
+   */
   static build(settings: { maxPromptChars: number }) {
     return COMMANDS.map((command) => {
       const builder = new SlashCommandBuilder()
@@ -60,7 +69,12 @@ export class Commands {
     });
   }
 
-  /** Le texte de /aide et /help, dérivé des mêmes définitions. */
+  /**
+   * Le texte de `/aide` et `/help`, dérivé des mêmes définitions.
+   *
+   * @static
+   * @returns {string} La liste des commandes au format Markdown.
+   */
   static helpText(): string {
     const lines = COMMANDS.filter((command) => command.name !== 'help').map(
       (command) => `- ${command.help}`,
@@ -69,8 +83,11 @@ export class Commands {
   }
 
   /**
-   * Le formulaire de /feature-request : un titre court et une description,
+   * Le formulaire de `/feature-request` : un titre court et une description,
    * Discord n'offrant pas de saisie multi-champs dans une slash command.
+   *
+   * @static
+   * @returns {ModalBuilder} Le modal prêt à être affiché.
    */
   static featureRequestModal(): ModalBuilder {
     return new ModalBuilder()

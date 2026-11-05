@@ -61,7 +61,7 @@ test(
   async () => {
     const discord = await startFakeDiscord();
     const deepseek = await startFakeDeepSeek({
-      replies: (body) => `echo: ${body.messages.at(-1).content}`,
+      replies: (body) => `écho : ${body.messages.at(-1).content}`,
     });
 
     try {
@@ -115,7 +115,7 @@ test(
             ['q', 'version', 'aide', 'help', 'feature-request'],
           );
 
-          // ---- Public channel: shared memory ------------------------------
+          /** ---- Canal public : mémoire partagée ---------------------------- */
           discord.dispatchMessage(
             discord.messageData({
               id: 'message-1',
@@ -126,7 +126,7 @@ test(
             (request) =>
               request.kind === 'message' &&
               request.channelId === discord.guildChannelId &&
-              request.body.content === 'echo: first question',
+              request.body.content === 'écho : first question',
           );
 
           discord.dispatchMessage(
@@ -139,16 +139,16 @@ test(
             (request) =>
               request.kind === 'message' &&
               request.channelId === discord.guildChannelId &&
-              request.body.content === 'echo: second question',
+              request.body.content === 'écho : second question',
           );
 
           assert.deepEqual(deepseek.calls[1].messages, [
             { role: 'user', content: 'first question' },
-            { role: 'assistant', content: 'echo: first question' },
+            { role: 'assistant', content: 'écho : first question' },
             { role: 'user', content: 'second question' },
           ]);
 
-          // The channel history is really in MongoDB — encrypted at rest.
+          /** L'historique du canal est bien dans MongoDB — chiffré au repos. */
           const channelDoc = await collection(db, 'channel_memories').findOne({
             _id: discord.guildChannelId,
           });
@@ -163,7 +163,7 @@ test(
             assert.equal(typeof turn.authTag, 'string');
           }
 
-          // ---- DM: answered, but nothing is ever stored -------------------
+          /** ---- MP : répondus, mais rien n'est jamais stocké ---------------- */
           discord.dispatchMessage(
             discord.messageData({
               id: 'dm-message-1',
@@ -178,7 +178,7 @@ test(
             (request) =>
               request.kind === 'message' &&
               request.channelId === 'dm-1' &&
-              request.body.content === 'echo: private hello',
+              request.body.content === 'écho : private hello',
           );
 
           assert.deepEqual(deepseek.calls.at(-1)!.messages, [
@@ -189,7 +189,7 @@ test(
             0,
           );
 
-          // A second DM also has no memory of the first.
+          /** Un second MP n'a pas non plus mémoire du premier. */
           discord.dispatchMessage(
             discord.messageData({
               id: 'dm-message-2',
@@ -204,13 +204,13 @@ test(
             (request) =>
               request.kind === 'message' &&
               request.channelId === 'dm-1' &&
-              request.body.content === 'echo: second private',
+              request.body.content === 'écho : second private',
           );
           assert.deepEqual(deepseek.calls.at(-1)!.messages, [
             { role: 'user', content: 'second private' },
           ]);
 
-          // The channel history survived all the DM traffic.
+          /** L'historique du canal a survécu à tout le trafic en MP. */
           const freshMemory = await MemoryStore.connect({
             uri: TEST_MONGODB_URI,
             dbName,
@@ -222,15 +222,15 @@ test(
           try {
             assert.deepEqual(await freshMemory.getHistory(discord.guildChannelId), [
               { role: 'user', content: 'first question' },
-              { role: 'assistant', content: 'echo: first question' },
+              { role: 'assistant', content: 'écho : first question' },
               { role: 'user', content: 'second question' },
-              { role: 'assistant', content: 'echo: second question' },
+              { role: 'assistant', content: 'écho : second question' },
             ]);
           } finally {
             await freshMemory.close();
           }
 
-          // With another key, the stored history is unreadable.
+          /** Avec une autre clé, l'historique stocké est illisible. */
           const wrongKeyMemory = await MemoryStore.connect({
             uri: TEST_MONGODB_URI,
             dbName,
@@ -246,7 +246,7 @@ test(
             await wrongKeyMemory.close();
           }
 
-          // ---- Guild slash command ----------------------------------------
+          /** ---- Commande slash de guilde ----------------------------------- */
           discord.dispatchCommand({
             interactionId: 'interaction-q',
             commandName: 'q',
@@ -262,11 +262,11 @@ test(
           const slashAnswer = await discord.waitForRequest(
             (request) =>
               request.kind === 'editReply' &&
-              request.body.content === 'echo: slash question',
+              request.body.content === 'écho : slash question',
           );
           assert.deepEqual(slashAnswer.body.allowed_mentions, { parse: [] });
 
-          // ---- /version and /feature-request ------------------------------
+          /** ---- /version et /feature-request -------------------------------- */
           discord.dispatchCommand({
             interactionId: 'interaction-version',
             commandName: 'version',
@@ -279,7 +279,7 @@ test(
           assert.match(versionReply.body.data.content, /9\.9\.9/);
           assert.match(versionReply.body.data.content, /abc1234/);
 
-          // ---- /feature-request : commande, modal, création d'issue ---------
+          /** ---- /feature-request : commande, modal, création d'issue --------- */
           discord.dispatchCommand({
             interactionId: 'interaction-feature',
             commandName: 'feature-request',
@@ -312,7 +312,7 @@ test(
             },
           ]);
 
-          // Channel memory was never touched by the DM flows.
+          /** La mémoire du canal n'a jamais été touchée par les flux en MP. */
           assert.equal(
             await collection(db, 'channel_memories').countDocuments({ _id: 'user-1' }),
             0,
@@ -329,3 +329,4 @@ test(
     }
   },
 );
+

@@ -22,10 +22,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      # Node est configuré une seule fois, via .nvmrc à la racine. Sur le
+      # runner auto-hébergé, le cache d'outils de setup-node persiste entre
+      # les jobs et les exécutions : la distribution est téléchargée au plus
+      # une fois, les autres jobs affichent « Found in cache ».
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Install dependencies
@@ -42,10 +46,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      # Scan package-lock.json against the OSV database (CVE + GHSA).
-      # The step fails when a known vulnerability is found; to ignore a
-      # confirmed false positive, add an osv-scanner.toml to the repository.
-      # Bump the version tag here when a new osv-scanner release comes out.
+      # Balaye package-lock.json contre la base OSV (CVE + GHSA). L'étape
+      # échoue quand une vulnérabilité connue est trouvée ; pour ignorer un
+      # faux positif confirmé, ajouter un osv-scanner.toml au dépôt. Mettre à
+      # jour la balise de version aux nouvelles releases d'osv-scanner.
       - name: Scan dependencies for known CVEs
         run: |
           docker run --rm -v "$PWD:/src" ghcr.io/google/osv-scanner:v2.7.0 scan --recursive /src
@@ -59,10 +63,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      # Réutilise la même version (.nvmrc) ; sur le runner auto-hébergé,
+      # setup-node la retrouve dans son cache d'outils sans téléchargement.
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Install dependencies

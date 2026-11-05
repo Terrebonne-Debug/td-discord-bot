@@ -1,6 +1,10 @@
 import type { MessageFlags, MessageMentionOptions } from 'discord.js';
 
-/** Text-only reply payload, shared by every send path. */
+/**
+ * Charge de réponse textuelle, partagée par tous les chemins d'envoi.
+ *
+ * @interface
+ */
 export interface ReplyPayload {
   content: string;
   allowedMentions?: MessageMentionOptions;

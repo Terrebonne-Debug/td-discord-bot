@@ -42,7 +42,7 @@ function appConfig(overrides: Partial<StartupConfig> = {}): StartupConfig {
   };
 }
 
-test('createDefaultClient enables the required intents and channel partials', () => {
+test('Launcher.createDefaultClient active les intents requis et les partials de canal', () => {
   const client = Launcher.createDefaultClient();
 
   assert.ok(client instanceof Client);
@@ -59,7 +59,7 @@ test('createDefaultClient enables the required intents and channel partials', ()
   client.destroy();
 });
 
-test('shutdown destroys the client and closes memory exactly once', async () => {
+test('l\'arrêt détruit le client et ferme la mémoire exactement une fois', async () => {
   const client = createFakeClient();
   const memory = createFakeMemory();
   const logger = createLogger();
@@ -74,8 +74,8 @@ test('shutdown destroys the client and closes memory exactly once', async () => 
   assert.equal(client.destroyed, true);
   assert.ok(memory.calls.some((call) => call.method === 'close'));
   assert.deepEqual(logger.messages('info'), [
-    'Received SIGINT; shutting down.',
-    'Shutdown terminé',
+    'Reçu SIGINT ; arrêt en cours.',
+    'Arrêt terminé',
   ]);
 
   processRef.emit('SIGTERM');
@@ -85,7 +85,7 @@ test('shutdown destroys the client and closes memory exactly once', async () => 
   assert.equal(memory.calls.filter((call) => call.method === 'close').length, 1);
 });
 
-test('a failed shutdown is logged and exits with a non-zero code', async () => {
+test('un arrêt échoué est journalisé et sort avec un code non nul', async () => {
   const client = createFakeClient();
   const memory = createFakeMemory({ failures: { close: 1 } });
   const logger = createLogger();
@@ -97,10 +97,10 @@ test('a failed shutdown is logged and exits with a non-zero code', async () => {
   const [code] = await once(processRef, 'exit');
 
   assert.equal(code, 1);
-  assert.match(logger.messages('error')[0], /Shutdown failed: Error: close failed/);
+  assert.match(logger.messages('error')[0], /Échec de l'arrêt : Error: close a échoué/);
 });
 
-test('start connects MongoDB, logs settings and registers the commands', async () => {
+test('Launcher.start connecte MongoDB, journalise les réglages et enregistre les commandes', async () => {
   const client = createFakeClient();
   const memory = createFakeMemory({ mode: 'mongo' });
   const logger = createLogger();
@@ -135,10 +135,10 @@ test('start connects MongoDB, logs settings and registers the commands', async (
 
   assert.deepEqual(logger.messages('info'), [
     'Démarrage du bot',
-    'Logged in as TestBot#0001.',
-    'DeepSeek: model=deepseek-v4-flash base=http://127.0.0.1:9999 thinking=enabled effort=max',
-    'Memory: MongoDB db=test-db ttl=7d.',
-    'Registered 5 slash commands in Guild Name.',
+    'Connecté en tant que TestBot#0001.',
+    'DeepSeek : modèle=deepseek-v4-flash base=http://127.0.0.1:9999 réflexion=enabled effort=max',
+    'Mémoire : MongoDB base=test-db ttl=7j.',
+    '5 commandes slash enregistrées dans Guild Name.',
   ]);
   assert.equal(client.globalCommands.length, 0);
   assert.equal(client.guildCommands.length, 5);
@@ -149,7 +149,7 @@ test('start connects MongoDB, logs settings and registers the commands', async (
   assert.equal(client.destroyed, true);
 });
 
-test('start logs MongoDB memory without a TTL when none is configured', async () => {
+test('Launcher.start journalise la mémoire MongoDB sans TTL quand aucun n\'est configuré', async () => {
   const client = createFakeClient();
   const memory = createFakeMemory({ mode: 'mongo' });
   const logger = createLogger();
@@ -162,10 +162,10 @@ test('start logs MongoDB memory without a TTL when none is configured', async ()
     processRef: makeProcess(),
   }).start();
 
-  assert.ok(logger.messages('info').includes('Memory: MongoDB db=test-db.'));
+  assert.ok(logger.messages('info').includes('Mémoire : MongoDB base=test-db.'));
 });
 
-test('start logs the in-RAM fallback when MongoDB is unavailable', async () => {
+test('Launcher.start journalise le repli en RAM quand MongoDB est indisponible', async () => {
   const client = createFakeClient();
   const memory = createFakeMemory({ mode: 'memory' });
   const logger = createLogger();
@@ -185,10 +185,10 @@ test('start logs the in-RAM fallback when MongoDB is unavailable', async () => {
 
   assert.deepEqual(logger.messages('info'), [
     'Démarrage du bot',
-    'Logged in as TestBot#0001.',
-    'DeepSeek: model=deepseek-v4-flash base=http://127.0.0.1:9999 thinking=disabled',
-    'Memory: in-RAM fallback (lost on restart).',
-    'Registered 5 global slash commands (they can take up to an hour to appear).',
+    'Connecté en tant que TestBot#0001.',
+    'DeepSeek : modèle=deepseek-v4-flash base=http://127.0.0.1:9999 réflexion=disabled',
+    'Mémoire : repli en RAM (perdue au redémarrage).',
+    '5 commandes slash globales enregistrées (elles peuvent mettre jusqu\'à une heure à apparaître).',
   ]);
   assert.deepEqual(
     client.globalCommands.map((command) => command.name),
@@ -196,7 +196,7 @@ test('start logs the in-RAM fallback when MongoDB is unavailable', async () => {
   );
 });
 
-test('start cleans up and rethrows when Discord login fails', async () => {
+test('Launcher.start nettoie et relève l\'erreur quand la connexion Discord échoue', async () => {
   const client = createFakeClient();
   client.login = async () => {
     throw new Error('bad token');

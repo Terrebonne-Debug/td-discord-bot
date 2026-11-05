@@ -1,4 +1,8 @@
-/** Inputs of createGitHubIssue: where and what to post. */
+/**
+ * Entrées de GitHubIssues : où et quoi publier.
+ *
+ * @interface
+ */
 export interface CreateIssueOptions {
   token: string;
   repository: string;

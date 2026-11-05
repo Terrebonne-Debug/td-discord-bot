@@ -7,15 +7,15 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-test('splitMessage handles empty, short and exactly-limit messages', () => {
-  assert.deepEqual(Bot.splitMessage('   '), ['The model returned an empty response.']);
+test('Bot.splitMessage gère les messages vides, courts et exactement à la limite', () => {
+  assert.deepEqual(Bot.splitMessage('   '), ['Le modèle a renvoyé une réponse vide.']);
   assert.deepEqual(Bot.splitMessage('  hello  '), ['hello']);
 
   const exact = 'a'.repeat(2000);
   assert.deepEqual(Bot.splitMessage(exact), [exact]);
 });
 
-test('splitMessage prefers newlines, then spaces, then hard cuts', () => {
+test('Bot.splitMessage préfère les retours à la ligne, puis les espaces, puis les coupes franches', () => {
   const withNewline = `${'a'.repeat(1500)}\n${'b'.repeat(1500)}`;
   assert.deepEqual(Bot.splitMessage(withNewline), ['a'.repeat(1500), 'b'.repeat(1500)]);
 
@@ -33,7 +33,7 @@ test('splitMessage prefers newlines, then spaces, then hard cuts', () => {
   ]);
 });
 
-test('splitMessage falls back to a hard cut when early separators are too far left', () => {
+test('Bot.splitMessage replie sur une coupe franche quand les séparateurs sont trop à gauche', () => {
   const text = `${'a'.repeat(500)}\n${'b'.repeat(2500)}`;
   const chunks = Bot.splitMessage(text);
 
@@ -41,27 +41,27 @@ test('splitMessage falls back to a hard cut when early separators are too far le
   assert.equal(chunks.join(''), text);
 });
 
-test('stripBotMention removes mentions and trims whitespace', () => {
+test('Bot.stripBotMention retire les mentions et nettoie les espaces', () => {
   assert.equal(Bot.stripBotMention('<@!bot-1> hello', 'bot-1'), 'hello');
   assert.equal(Bot.stripBotMention('<@bot-1> hello <@bot-1>', 'bot-1'), 'hello');
   assert.equal(Bot.stripBotMention('  hello  ', null), 'hello');
   assert.equal(Bot.stripBotMention('  hello  ', undefined), 'hello');
 });
 
-test('describeRequestError prioritises memory failures', () => {
+test('Bot.describeRequestError priorise les échecs de mémoire', () => {
   assert.match(
     Bot.describeRequestError({ memoryUnavailable: true }),
-    /Conversation memory is temporarily unavailable/,
+    /mémoire de conversation est momentanément indisponible/,
   );
-  assert.match(Bot.describeRequestError({ status: 429 }), /rate limiting/);
+  assert.match(Bot.describeRequestError({ status: 429 }), /limite le débit/);
 });
 
-test('startTyping is a no-op without a usable channel', () => {
+test('Bot.startTyping est sans effet sans canal utilisable', () => {
   assert.equal(typeof Bot.startTyping(null), 'function');
   assert.doesNotThrow(() => Bot.startTyping({})());
 });
 
-test('startTyping sends immediately and repeats until stopped', async () => {
+test('Bot.startTyping envoie immédiatement et répète jusqu\'à l\'arrêt', async () => {
   let calls = 0;
   const stop = Bot.startTyping(
     {
@@ -84,7 +84,7 @@ test('startTyping sends immediately and repeats until stopped', async () => {
   assert.equal(calls, afterInterval);
 });
 
-test('startTyping swallows sendTyping failures', async () => {
+test('Bot.startTyping avale les échecs de sendTyping', async () => {
   const stop = Bot.startTyping(
     {
       sendTyping: async () => {
@@ -101,7 +101,7 @@ test('startTyping swallows sendTyping failures', async () => {
 
 const COMMAND_NAMES = ['q', 'version', 'aide', 'help', 'feature-request'];
 
-test('registerCommands registers every command in the guild only', async () => {
+test('Bot.registerCommands enregistre chaque commande dans la guilde seulement', async () => {
   const client = createFakeClient();
   const logger = createLogger();
   const settings = {
@@ -118,10 +118,10 @@ test('registerCommands registers every command in the guild only', async () => {
     COMMAND_NAMES,
   );
   assert.equal(client.globalCommands.length, 0);
-  assert.match(logger.messages('info')[0], /Registered 5 slash commands in Guild Name\./);
+  assert.match(logger.messages('info')[0], /5 commandes slash enregistrées dans Guild Name\./);
 });
 
-test('registerCommands registers every command globally without a guild id', async () => {
+test('Bot.registerCommands enregistre chaque commande globalement sans identifiant de guilde', async () => {
   const client = createFakeClient();
   const logger = createLogger();
   const settings = {
@@ -137,17 +137,22 @@ test('registerCommands registers every command globally without a guild id', asy
     COMMAND_NAMES,
   );
   assert.equal(client.globalCommands[0].options[0].max_length, 6000);
-  assert.match(logger.messages('info')[0], /5 global slash commands/);
+  assert.match(logger.messages('info')[0], /5 commandes slash globales enregistrées/);
 });
 
-test('registerCommands logs instead of throwing when Discord rejects the update', async () => {
+test('Bot.registerCommands journalise au lieu de lever quand Discord rejette la mise à jour', async () => {
   const client = createFakeClient();
+  /**
+   * Un échec non-Error (ici une chaîne) couvre aussi la branche de
+   * journalisation des rejets inhabituels.
+   */
   client.guilds.fetch = async () => {
-    throw new Error('discord down');
+    throw 'discord en panne';
   };
   const logger = createLogger();
 
   await Bot.registerCommands(client, { discordGuildId: 'guild-1', maxPromptChars: 4000 }, logger);
 
-  assert.match(logger.messages('error')[0], /Could not register slash commands: discord down/);
+  assert.match(logger.messages('error')[0], /Impossible d'enregistrer les commandes slash : discord en panne/);
 });
+

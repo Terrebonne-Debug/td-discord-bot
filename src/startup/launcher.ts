@@ -1,5 +1,5 @@
 import { Client, Events, GatewayIntentBits, Partials } from 'discord.js';
-import { config } from '../config/config-loader.ts';
+import { ConfigLoader } from '../config/config-loader.ts';
 import { MemoryCipher } from '../crypto/memory-cipher.ts';
 import { MemoryStore } from '../memory/memory-store.ts';
 import { Bot } from '../bot/bot.ts';
@@ -14,11 +14,21 @@ import type { StartupClient } from '../models/start/startup-client.ts';
 import type { StartupConfig } from '../models/start/startup-config.ts';
 
 /**
- * Boots the bot: connects memory, logs the bot in, registers the commands
- * and installs the shutdown handlers that destroy the client and close
- * MongoDB exactly once, even when two signals arrive together.
+ * Démarre le bot : connecte la mémoire, ouvre la session Discord, enregistre
+ * les commandes et installe les gestionnaires d'arrêt qui détruisent le
+ * client et ferment MongoDB exactement une fois, même si deux signaux
+ * arrivent ensemble.
+ *
+ * @class Launcher
  */
 export class Launcher {
+  /**
+   * Construit le client Discord avec les intents requis.
+   *
+   * @static
+   * @function
+   * @returns {Client} Le client discord.js configuré.
+   */
   static createDefaultClient(): Client {
     return new Client({
       intents: [
@@ -31,6 +41,17 @@ export class Launcher {
     });
   }
 
+  /**
+   * Installe les gestionnaires SIGINT/SIGTERM.
+   *
+   * @static
+   * @function
+   * @param {{ destroy(): void }} client - Le client à détruire.
+   * @param {{ close(): Promise<void> }} memory - La mémoire à fermer.
+   * @param {BotLogger} [logger] - Le journal du bot.
+   * @param {ProcessLike} [processRef=process] - Le processus à observer.
+   * @returns {(signal: string) => Promise<boolean>} La fonction d'arrêt.
+   */
   static installShutdownHandlers({
     client,
     memory,
@@ -48,10 +69,10 @@ export class Launcher {
       if (shuttingDown) return false;
       shuttingDown = true;
       const startedAt = performance.now();
-      logger.info(`Received ${signal}; shutting down.`);
+      logger.info(`Reçu ${signal} ; arrêt en cours.`);
       client.destroy();
       await memory.close();
-      logger.info('Shutdown terminé', {
+      logger.info('Arrêt terminé', {
         signal,
         ms: Math.round(performance.now() - startedAt),
       });
@@ -66,7 +87,7 @@ export class Launcher {
             if (didShutDown) processRef.exit(0);
           },
           (error) => {
-            logger.error(`Shutdown failed: ${error}`);
+            logger.error(`Échec de l'arrêt : ${error}`);
             processRef.exit(1);
           },
         );
@@ -76,14 +97,27 @@ export class Launcher {
     return shutdown;
   }
 
+  /** @type {StartupConfig} La configuration de démarrage. */
   #appConfig: StartupConfig;
+  /** @type {() => BotClient & StartupClient} La fabrique de client. */
   #createClient: () => BotClient & StartupClient;
+  /** @type {(options: MemoryConnectOptions) => Promise<ConversationMemory>} La fabrique de mémoire. */
   #connectMemory: (options: MemoryConnectOptions) => Promise<ConversationMemory>;
+  /** @type {BotLogger} Le journal du bot. */
   #logger: BotLogger;
+  /** @type {ProcessLike} Le processus à observer. */
   #processRef: ProcessLike;
 
+  /**
+   * @constructor
+   * @param {StartupConfig} [appConfig=config] - La configuration de démarrage.
+   * @param {() => BotClient & StartupClient} [createClient] - La fabrique de client.
+   * @param {(options: MemoryConnectOptions) => Promise<ConversationMemory>} [connectMemory] - La fabrique de mémoire.
+   * @param {BotLogger} [logger] - Le journal du bot.
+   * @param {ProcessLike} [processRef=process] - Le processus à observer.
+   */
   constructor({
-    appConfig = config,
+    appConfig = ConfigLoader.load(process.env),
     createClient = Launcher.createDefaultClient,
     connectMemory = MemoryStore.connect,
     logger = new LoggerFactory().rootLogger(),
@@ -102,6 +136,12 @@ export class Launcher {
     this.#processRef = processRef;
   }
 
+  /**
+   * Démarre le bot et attend que Discord soit prêt.
+   *
+   * @method
+   * @returns {Promise<{client: BotClient & StartupClient; memory: ConversationMemory; shutdown: (signal: string) => Promise<boolean>}>} Les dépendances démarrées.
+   */
   async start(): Promise<{
     client: BotClient & StartupClient;
     memory: ConversationMemory;
@@ -136,20 +176,20 @@ export class Launcher {
 
     const ready = new Promise<void>((resolve) => {
       client.once(Events.ClientReady, async (readyClient) => {
-        this.#logger.info(`Logged in as ${readyClient.user.tag}.`);
+        this.#logger.info(`Connecté en tant que ${readyClient.user.tag}.`);
         this.#logger.info(
-          `DeepSeek: model=${this.#appConfig.deepseekModel} base=${this.#appConfig.deepseekBaseUrl} ` +
-            `thinking=${this.#appConfig.deepseekThinking}` +
+          `DeepSeek : modèle=${this.#appConfig.deepseekModel} base=${this.#appConfig.deepseekBaseUrl} ` +
+            `réflexion=${this.#appConfig.deepseekThinking}` +
             (this.#appConfig.deepseekThinking === 'enabled'
               ? ` effort=${this.#appConfig.deepseekEffort}`
               : ''),
         );
         this.#logger.info(
           memory.mode === 'mongo'
-            ? `Memory: MongoDB db=${this.#appConfig.mongodbDb}` +
-                (this.#appConfig.memoryTtlDays ? ` ttl=${this.#appConfig.memoryTtlDays}d` : '') +
+            ? `Mémoire : MongoDB base=${this.#appConfig.mongodbDb}` +
+                (this.#appConfig.memoryTtlDays ? ` ttl=${this.#appConfig.memoryTtlDays}j` : '') +
                 '.'
-            : 'Memory: in-RAM fallback (lost on restart).',
+            : 'Mémoire : repli en RAM (perdue au redémarrage).',
         );
 
         await Bot.registerCommands(readyClient, this.#appConfig, this.#logger);
