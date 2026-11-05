@@ -23,9 +23,10 @@ src/
 ├── config/                   ConfigLoader : lecture et validation de l'environnement
 ├── crypto/                   MemoryCipher : AES-256-GCM pour les tours en base
 ├── deepseek/                 DeepSeek : client et appels au modèle
+├── errors/                   classes d'erreur (MemoryUnavailableError)
 ├── github/                   GitHubIssues : création d'issues via l'API REST
 ├── logging/                  LoggerFactory + ArchiveSweeper : journaux et archives
-├── memory/                   MemoryStore + MemoryUnavailableError : mémoire des canaux
+├── memory/                   MemoryStore : mémoire des canaux
 ├── models/                   une interface ou un type par fichier, par domaine
 ├── startup/                  Launcher : démarrage, enregistrement des commandes, arrêt
 ├── utils/                    Errors : formatage des rejets pour les journaux
@@ -72,6 +73,12 @@ Tout est injecté au constructeur (client Discord, mémoire, modèle, journal,
 créateur d'issue, version) : les tests pilotent le flux complet avec des faux
 objets (`test/helpers/fakes.ts`) sans toucher au réseau. Aucun module ne
 fabrique ses dépendances autrement que par défaut de constructeur.
+
+Chaque fichier de `src/` est **une classe** : aucune fonction libre ni
+constante éparpillée — les utilitaires sont des méthodes (souvent privées et
+statiques) de la classe propriétaire, et le point d'entrée d'un module est sa
+classe (`ConfigLoader.load()`, `LoggerFactory`, `ArchiveSweeper`) plutôt
+qu'un objet pré-construit à l'import.
 
 ## Flux d'une requête
 

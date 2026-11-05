@@ -13,9 +13,12 @@
   `@param {Type}`, `@method` + `@returns`, `@static`, `@function`,
   `@interface`, `@type`, `@throws`.
 - **Une classe par fichier** dans `src/` (sous-dossiers par domaine), une
-  interface par fichier dans `src/models/`, aucune fonction exportée isolément
-  (les utilitaires sont des méthodes statiques : `Bot.splitMessage`,
-  `Errors.messageOf`…).
+  interface par fichier dans `src/models/`, **aucune fonction libre** : les
+  utilitaires sont des méthodes statiques de la classe propriétaire
+  (`Bot.splitMessage`, `Errors.messageOf`) et les helpers internes des
+  membres privés statiques (`MemoryStore.#normalizeTurns`,
+  `ArchiveSweeper.#gzipFile`…). Les classes d'erreur vivent dans
+  `src/errors/`.
 - **Injection de dépendances au constructeur** : tests et production suivent le
   même câblage, jamais d'import de singleton (le point d'entrée d'un module
   est sa classe : `ConfigLoader.load()`, `LoggerFactory`, `ArchiveSweeper`).
