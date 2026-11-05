@@ -18,7 +18,7 @@ permissions:
 jobs:
   basics:
     name: Basic checks
-    runs-on: [self-hosted, Linux, X64, discord-bot]
+    runs-on: [self-hosted, Linux, X64, discord-bot, primary]
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -42,7 +42,7 @@ jobs:
 
   lint:
     name: Lint and format
-    runs-on: [self-hosted, Linux, X64, discord-bot]
+    runs-on: [self-hosted, Linux, X64, discord-bot, primary]
     timeout-minutes: 10
     permissions:
       contents: write
@@ -121,8 +121,7 @@ jobs:
 
   tests:
     name: Tests and 100% coverage
-    needs: basics
-    runs-on: [self-hosted, Linux, X64, discord-bot]
+    runs-on: [self-hosted, Linux, X64, discord-bot, primary]
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -138,6 +137,11 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      # Le typecheck ouvre le job : sans la dépendance vers basics, un échec
+      # de types échoue ici, avant de mobiliser MongoDB et la suite.
+      - name: Typecheck sources and tests
+        run: npm run check
 
       - name: Start an isolated MongoDB
         run: |
