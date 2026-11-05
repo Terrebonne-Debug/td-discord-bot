@@ -1,7 +1,7 @@
 import path from 'node:path';
 import winston from 'winston';
 import DailyRotateFile from 'winston-daily-rotate-file';
-import { config } from '../config/config-loader.ts';
+import { ConfigLoader } from '../config/config-loader.ts';
 import type { LogLevel } from '../models/config/log-level.ts';
 import type { BotLogger } from '../models/logging/bot-logger.ts';
 import type { LoggingConfig } from '../models/logging/logging-config.ts';
@@ -82,7 +82,7 @@ export class LoggerFactory {
    * @constructor
    * @param {LoggingConfig} [appConfig=config] - La configuration de journalisation.
    */
-  constructor(appConfig: LoggingConfig = config) {
+  constructor(appConfig: LoggingConfig = ConfigLoader.load(process.env)) {
     this.#appConfig = appConfig;
   }
 

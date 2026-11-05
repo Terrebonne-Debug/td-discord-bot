@@ -3,10 +3,10 @@
  */
 import { Launcher } from './startup/launcher.ts';
 import { LoggerFactory } from './logging/logger-factory.ts';
-import { config } from './config/config-loader.ts';
+import { ConfigLoader } from './config/config-loader.ts';
 import { Errors } from './utils/errors.ts';
 
-const logger = new LoggerFactory(config).rootLogger();
+const logger = new LoggerFactory(ConfigLoader.load(process.env)).rootLogger();
 
 new Launcher({ logger })
   .start()

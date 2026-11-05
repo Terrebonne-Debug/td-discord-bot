@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { config } from '../config/config-loader.ts';
+import { ConfigLoader } from '../config/config-loader.ts';
 import type { DeepSeekClient } from '../models/deepseek/deepseek-client.ts';
 import type { DeepSeekClientSettings } from '../models/deepseek/deepseek-client-settings.ts';
 import type { DeepSeekSettings } from '../models/deepseek/deepseek-settings.ts';
@@ -21,7 +21,7 @@ export class DeepSeek {
    * @param {DeepSeekClientSettings} settings - Clé, URL de base et délai.
    * @returns {DeepSeekClient} Le client prêt à l'emploi.
    */
-  static createClient(settings: DeepSeekClientSettings = config): DeepSeekClient {
+  static createClient(settings: DeepSeekClientSettings = ConfigLoader.load(process.env)): DeepSeekClient {
     /**
      * Le vrai client expose `messages.create` sous forme de surcharges que
      * TypeScript ne peut pas réduire à la seule signature appelée par le bot ;
@@ -81,7 +81,7 @@ export class DeepSeek {
    * @param {DeepSeekClient} [client=DeepSeek.createClient()] - Client SDK.
    */
   constructor({
-    settings = config,
+    settings = ConfigLoader.load(process.env),
     client = DeepSeek.createClient(),
   }: {
     settings?: DeepSeekSettings;

@@ -1,5 +1,5 @@
 import { Client, Events, GatewayIntentBits, Partials } from 'discord.js';
-import { config } from '../config/config-loader.ts';
+import { ConfigLoader } from '../config/config-loader.ts';
 import { MemoryCipher } from '../crypto/memory-cipher.ts';
 import { MemoryStore } from '../memory/memory-store.ts';
 import { Bot } from '../bot/bot.ts';
@@ -117,7 +117,7 @@ export class Launcher {
    * @param {ProcessLike} [processRef=process] - Le processus à observer.
    */
   constructor({
-    appConfig = config,
+    appConfig = ConfigLoader.load(process.env),
     createClient = Launcher.createDefaultClient,
     connectMemory = MemoryStore.connect,
     logger = new LoggerFactory().rootLogger(),
