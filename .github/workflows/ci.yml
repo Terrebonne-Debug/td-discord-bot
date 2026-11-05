@@ -14,17 +14,18 @@ permissions:
   contents: read
 
 jobs:
-  ci:
-    name: Typecheck, CVE scan, tests and 100% coverage
+  basics:
+    name: Basic checks
     runs-on: [self-hosted, Linux, X64, discord-bot]
-    timeout-minutes: 30
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
-      # Node est configuré une seule fois, via .nvmrc à la racine : un seul
-      # setup-node pour tout le flot (le cache d'outils du runner auto-hébergé
-      # évite le téléchargement dès la deuxième exécution).
+      # Node est configuré une seule fois, via .nvmrc à la racine. Sur le
+      # runner auto-hébergé, le cache d'outils de setup-node persiste entre
+      # les jobs et les exécutions : la distribution est téléchargée au plus
+      # une fois, les autres jobs affichent « Found in cache ».
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
@@ -37,6 +38,14 @@ jobs:
       - name: Typecheck sources and tests
         run: npm run check
 
+  security:
+    name: CVE scan
+    runs-on: [self-hosted, Linux, X64, discord-bot]
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
       # Balaye package-lock.json contre la base OSV (CVE + GHSA). L'étape
       # échoue quand une vulnérabilité connue est trouvée ; pour ignorer un
       # faux positif confirmé, ajouter un osv-scanner.toml au dépôt. Mettre à
@@ -44,6 +53,26 @@ jobs:
       - name: Scan dependencies for known CVEs
         run: |
           docker run --rm -v "$PWD:/src" ghcr.io/google/osv-scanner:v2.7.0 scan --recursive /src
+
+  tests:
+    name: Tests and 100% coverage
+    needs: basics
+    runs-on: [self-hosted, Linux, X64, discord-bot]
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # Réutilise la même version (.nvmrc) ; sur le runner auto-hébergé,
+      # setup-node la retrouve dans son cache d'outils sans téléchargement.
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Start an isolated MongoDB
         run: |

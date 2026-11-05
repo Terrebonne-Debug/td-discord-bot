@@ -51,17 +51,20 @@ implémentent les interfaces de `src/models/` : aucune bibliothèque de mock.
 
 ## CI
 
-Le workflow `.github/workflows/ci.yml` (runner auto-hébergé `mkII`) roule en
-**un seul job**, dans un ordre qui échoue vite :
+Le workflow `.github/workflows/ci.yml` (runner auto-hébergé `mkII`) découpe le
+flot en trois jobs :
 
-1. **Node.js** — un seul `setup-node`, piloté par `.nvmrc` à la racine (la
-   version est configurée une fois, dans le dépôt) ; le cache d'outils du
-   runner évite le téléchargement dès la deuxième exécution ;
-2. `npm ci` puis `npm run check` (types) ;
-3. balayage CVE des dépendances avec osv-scanner (version épinglée) contre la
-   base OSV : toute vulnérabilité connue fait échouer la CI ; les faux
-   positifs se déclarent dans un `osv-scanner.toml` ;
-4. suite complète avec un MongoDB isolé et les seuils de couverture.
+1. `basics` — `npm ci` puis `npm run check` (types) ;
+2. `security` — balayage CVE des dépendances avec osv-scanner (version
+   épinglée) contre la base OSV : toute vulnérabilité connue fait échouer la
+   CI ; les faux positifs se déclarent dans un `osv-scanner.toml` ;
+3. `tests` (après `basics`) — suite complète avec un MongoDB isolé et les
+   seuils de couverture.
+
+**Node est configuré une seule fois** : les deux `setup-node` lisent `.nvmrc`
+à la racine, et le cache d'outils du runner auto-hébergé persiste entre les
+jobs et les exécutions — la distribution n'est téléchargée qu'une fois, les
+jobs suivants affichent « Found in cache ».
 
 ## Secrets
 
