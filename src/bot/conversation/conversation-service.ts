@@ -1,4 +1,4 @@
-import { MemoryUnavailableError } from '../../memory/memory-unavailable-error.ts';
+import { MemoryUnavailableError } from '../../errors/memory-unavailable-error.ts';
 import { Errors } from '../../utils/errors.ts';
 import type { BotLogger } from '../../models/logging/bot-logger.ts';
 import type { ConversationMemory } from '../../models/memory/conversation-memory.ts';
