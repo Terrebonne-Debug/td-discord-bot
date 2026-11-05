@@ -1,5 +1,7 @@
-// Preloaded with --import so no test can accidentally read the developer's
-// real .env or shell configuration.
+/**
+ * Preloaded with --import so no test can accidentally read the developer's
+ * real .env or shell configuration.
+ */
 process.env.DOTENV_CONFIG_PATH = '/dev/null';
 
 const DEFAULTS: Record<string, string> = {
@@ -20,10 +22,11 @@ const DEFAULTS: Record<string, string> = {
   MONGODB_DB: 'td-discord-bot',
   MONGODB_TIMEOUT_MS: '5000',
   MEMORY_TTL_DAYS: '',
-  // Les tests ne doivent jamais écrire de fichiers de logs.
+  /** Les tests ne doivent jamais écrire de fichiers de logs. */
   LOG_FILE_ENABLED: 'false',
 };
 
 for (const [name, value] of Object.entries(DEFAULTS)) {
   process.env[name] = value;
 }
+

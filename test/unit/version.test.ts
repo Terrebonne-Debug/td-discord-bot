@@ -15,7 +15,7 @@ const runGitBroken = (): string => {
 };
 
 test('BuildInfoReader reads the package version and the short git commit', () => {
-  // Le cwd pointe vers la racine du projet, où package.json existe.
+  /** Le cwd pointe vers la racine du projet, où package.json existe. */
   const info = new BuildInfoReader({ cwd: process.cwd(), runGit: runGitOk }).read();
 
   assert.equal(info.version, '1.0.0');
@@ -49,3 +49,4 @@ test('BuildInfoReader degrades to unknown when package.json has no version', asy
     await rm(dir, { recursive: true, force: true });
   }
 });
+

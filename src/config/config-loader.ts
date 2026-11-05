@@ -114,15 +114,19 @@ export class ConfigLoader {
       maxHistoryTurns: positiveInt(env, 'MAX_HISTORY_TURNS', 10),
       maxPromptChars: positiveInt(env, 'MAX_PROMPT_CHARS', 4000),
 
-      // Conversation memory. Without a reachable MongoDB the bot falls back to
-      // in-RAM memory (lost on restart).
+      /**
+       * Conversation memory. Without a reachable MongoDB the bot falls back to
+       * in-RAM memory (lost on restart).
+       */
       mongodbUri: optional(env, 'MONGODB_URI', '') || null,
       mongodbDb: optional(env, 'MONGODB_DB', 'td-discord-bot'),
       mongodbTimeoutMs: positiveInt(env, 'MONGODB_TIMEOUT_MS', 5000),
-      // Channel history always expires: 30 days after its last update by
-      // default, MEMORY_TTL_DAYS overrides.
+      /**
+       * Channel history always expires: 30 days after its last update by
+       * default, MEMORY_TTL_DAYS overrides.
+       */
       memoryTtlDays: optionalPositiveInt(env, 'MEMORY_TTL_DAYS') ?? 30,
-      // Validated by MemoryCipher.parseKey at startup.
+      /** Validated by MemoryCipher.parseKey at startup. */
       memoryEncryptionKey: optional(env, 'MEMORY_ENCRYPTION_KEY', '') || null,
 
       logLevel,
@@ -131,8 +135,10 @@ export class ConfigLoader {
       logMaxSizeMb: positiveInt(env, 'LOG_MAX_SIZE_MB', 10),
       logRetentionDays: positiveInt(env, 'LOG_RETENTION_DAYS', 14),
 
-      // GitHub issue creation (/feature-request). Without a token the command
-      // answers that it is not configured.
+      /**
+       * GitHub issue creation (/feature-request). Without a token the command
+       * answers that it is not configured.
+       */
       githubToken: optional(env, 'GITHUB_TOKEN', '') || null,
       githubRepository: optional(env, 'GITHUB_REPOSITORY', 'Terrebonne-Debug/td-discord-bot'),
     });
@@ -141,3 +147,4 @@ export class ConfigLoader {
 
 /** The process configuration, loaded once at module import. */
 export const config = new ConfigLoader().parse(process.env);
+

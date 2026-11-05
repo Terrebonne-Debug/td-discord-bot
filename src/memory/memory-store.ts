@@ -232,8 +232,11 @@ export class MemoryStore implements ConversationMemory {
   }
 
   #collection(): Collection<MemoryDocument> {
-    // #db is always set in 'mongo' mode, and this accessor is only reached
-    // from 'mongo' code paths.
+    /**
+     * #db is always set in 'mongo' mode, and this accessor is only reached
+     * from 'mongo' code paths.
+     */
     return this.#db!.collection<MemoryDocument>(CHANNEL_COLLECTION);
   }
 }
+

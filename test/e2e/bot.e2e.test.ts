@@ -115,7 +115,7 @@ test(
             ['q', 'version', 'aide', 'help', 'feature-request'],
           );
 
-          // ---- Public channel: shared memory ------------------------------
+          /** ---- Public channel: shared memory ------------------------------ */
           discord.dispatchMessage(
             discord.messageData({
               id: 'message-1',
@@ -148,7 +148,7 @@ test(
             { role: 'user', content: 'second question' },
           ]);
 
-          // The channel history is really in MongoDB — encrypted at rest.
+          /** The channel history is really in MongoDB — encrypted at rest. */
           const channelDoc = await collection(db, 'channel_memories').findOne({
             _id: discord.guildChannelId,
           });
@@ -163,7 +163,7 @@ test(
             assert.equal(typeof turn.authTag, 'string');
           }
 
-          // ---- DM: answered, but nothing is ever stored -------------------
+          /** ---- DM: answered, but nothing is ever stored ------------------- */
           discord.dispatchMessage(
             discord.messageData({
               id: 'dm-message-1',
@@ -189,7 +189,7 @@ test(
             0,
           );
 
-          // A second DM also has no memory of the first.
+          /** A second DM also has no memory of the first. */
           discord.dispatchMessage(
             discord.messageData({
               id: 'dm-message-2',
@@ -210,7 +210,7 @@ test(
             { role: 'user', content: 'second private' },
           ]);
 
-          // The channel history survived all the DM traffic.
+          /** The channel history survived all the DM traffic. */
           const freshMemory = await MemoryStore.connect({
             uri: TEST_MONGODB_URI,
             dbName,
@@ -230,7 +230,7 @@ test(
             await freshMemory.close();
           }
 
-          // With another key, the stored history is unreadable.
+          /** With another key, the stored history is unreadable. */
           const wrongKeyMemory = await MemoryStore.connect({
             uri: TEST_MONGODB_URI,
             dbName,
@@ -246,7 +246,7 @@ test(
             await wrongKeyMemory.close();
           }
 
-          // ---- Guild slash command ----------------------------------------
+          /** ---- Guild slash command ---------------------------------------- */
           discord.dispatchCommand({
             interactionId: 'interaction-q',
             commandName: 'q',
@@ -266,7 +266,7 @@ test(
           );
           assert.deepEqual(slashAnswer.body.allowed_mentions, { parse: [] });
 
-          // ---- /version and /feature-request ------------------------------
+          /** ---- /version and /feature-request ------------------------------ */
           discord.dispatchCommand({
             interactionId: 'interaction-version',
             commandName: 'version',
@@ -279,7 +279,7 @@ test(
           assert.match(versionReply.body.data.content, /9\.9\.9/);
           assert.match(versionReply.body.data.content, /abc1234/);
 
-          // ---- /feature-request : commande, modal, création d'issue ---------
+          /** ---- /feature-request : commande, modal, création d'issue --------- */
           discord.dispatchCommand({
             interactionId: 'interaction-feature',
             commandName: 'feature-request',
@@ -312,7 +312,7 @@ test(
             },
           ]);
 
-          // Channel memory was never touched by the DM flows.
+          /** Channel memory was never touched by the DM flows. */
           assert.equal(
             await collection(db, 'channel_memories').countDocuments({ _id: 'user-1' }),
             0,
@@ -329,3 +329,4 @@ test(
     }
   },
 );
+

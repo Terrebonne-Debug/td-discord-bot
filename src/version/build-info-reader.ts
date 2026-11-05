@@ -35,16 +35,17 @@ export class BuildInfoReader {
       ) as { version?: string };
       version = packageJson.version ?? 'unknown';
     } catch {
-      // Déploiement sans package.json : la version reste inconnue.
+      /** Déploiement sans package.json : la version reste inconnue. */
     }
 
     let commit = 'unknown';
     try {
       commit = this.#runGit(['rev-parse', '--short', 'HEAD'], this.#cwd).trim();
     } catch {
-      // Pas de dépôt git (déploiement hors source) : le commit reste inconnu.
+      /** Pas de dépôt git (déploiement hors source) : le commit reste inconnu. */
     }
 
     return { version, commit };
   }
 }
+

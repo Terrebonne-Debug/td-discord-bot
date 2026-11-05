@@ -32,7 +32,7 @@ test('the rotating file logger turns size rotations into gzip archives', async (
   const logger = new LoggerFactory(fileConfig(dir)).rootLogger({ isTTY: false });
 
   try {
-    // ~1,5 Mo au total, au-delà du maxSize de 1 Mo : la rotation doit se produire.
+    /** ~1,5 Mo au total, au-delà du maxSize de 1 Mo : la rotation doit se produire. */
     const payload = 'x'.repeat(50_000);
     for (let i = 0; i < 30; i += 1) {
       logger.info(`entry-${i}`, { i, payload });
@@ -48,7 +48,7 @@ test('the rotating file logger turns size rotations into gzip archives', async (
     };
     await waitFor(rotatedOrArchived);
 
-    // Le balayage compresse la rotation terminée et supprime l'original.
+    /** Le balayage compresse la rotation terminée et supprime l'original. */
     await new ArchiveSweeper(dir, 2).sweep();
 
     const files = await list();
@@ -77,15 +77,15 @@ test('archiveLogs deletes expired archives, keeps fresh ones and survives unread
     const now = new Date('2026-11-02T12:00:00Z');
     const activeName = ArchiveSweeper.activeLogFilename(new Intl.DateTimeFormat('en-CA').format(now));
 
-    // Archives expirées et fraîche, contrôlées par leur date de modification.
+    /** Archives expirées et fraîche, contrôlées par leur date de modification. */
     await writeFile(path.join(dir, 'vieux.gz'), 'old');
     await utimes(path.join(dir, 'vieux.gz'), now, new Date(now.getTime() - 3 * day));
     await writeFile(path.join(dir, 'frais.gz'), 'fresh');
     await utimes(path.join(dir, 'frais.gz'), now, new Date(now.getTime() - 1 * day));
 
-    // Un « fichier tourné » illisible (répertoire) : le balayage continue.
+    /** Un « fichier tourné » illisible (répertoire) : le balayage continue. */
     await mkdir(path.join(dir, 'bot-2026-11-01.log.2'));
-    // Une archive cassée (lien symbolique pendant) : ignorée sans échec.
+    /** Une archive cassée (lien symbolique pendant) : ignorée sans échec. */
     await symlink('/cible-inexistante', path.join(dir, 'broken.gz'));
     await writeFile(path.join(dir, activeName), 'active');
     await utimes(path.join(dir, activeName), now, now);
@@ -109,3 +109,4 @@ test('archiveLogs tolerates a directory that has disappeared', async () => {
 
   await assert.doesNotReject(new ArchiveSweeper(dir, 14).sweep());
 });
+

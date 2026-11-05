@@ -190,7 +190,7 @@ test('tampered encrypted entries are skipped with a warning', async () => {
     try {
       await store.appendTurn('chan', 'secret', 'reply');
 
-      // Corrompt le texte chiffré en base.
+      /** Corrompt le texte chiffré en base. */
       const doc = await collection(db, 'channel_memories').findOne({ _id: 'chan' });
       assert.ok(doc);
       const tampered = JSON.parse(JSON.stringify(doc.turns));
@@ -334,3 +334,4 @@ test('a conflicting TTL index is reported without disabling MongoDB memory', asy
     }
   });
 });
+

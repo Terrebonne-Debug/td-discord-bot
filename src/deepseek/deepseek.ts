@@ -13,9 +13,11 @@ import type { Turn } from '../models/memory/turn.ts';
 export class DeepSeek {
   /** Builds the underlying Anthropic SDK client from the connection settings. */
   static createClient(settings: DeepSeekClientSettings = config): DeepSeekClient {
-    // The real client exposes `messages.create` as overloads, which TypeScript
-    // cannot narrow to the single signature the bot calls; the cast is safe
-    // because ask always calls the non-streaming form.
+    /**
+     * The real client exposes `messages.create` as overloads, which TypeScript
+     * cannot narrow to the single signature the bot calls; the cast is safe
+     * because ask always calls the non-streaming form.
+     */
     return new Anthropic({
       apiKey: settings.deepseekApiKey,
       baseURL: settings.deepseekBaseUrl,
@@ -81,7 +83,7 @@ export class DeepSeek {
 
     if (this.#settings.deepseekThinking === 'enabled') {
       params.thinking = { type: 'enabled' };
-      // DeepSeek supports output_config.effort on its Anthropic-compatible route.
+      /** DeepSeek supports output_config.effort on its Anthropic-compatible route. */
       params.output_config = { effort: this.#settings.deepseekEffort };
     } else {
       params.thinking = { type: 'disabled' };
@@ -100,3 +102,4 @@ export class DeepSeek {
 
 /** The shared instance used as the bot's default model. */
 export const defaultDeepSeek = new DeepSeek();
+

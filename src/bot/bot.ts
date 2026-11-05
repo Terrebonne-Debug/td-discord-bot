@@ -58,8 +58,10 @@ export class Bot {
     channel: TypingChannel | null | undefined,
     intervalMs = TYPING_INTERVAL_MS,
   ): () => void {
-    // Bound so the indicator keeps working from the interval callback and so
-    // the method is still called on the channel.
+    /**
+     * Bound so the indicator keeps working from the interval callback and so
+     * the method is still called on the channel.
+     */
     const sendTyping = channel?.sendTyping?.bind(channel);
     if (!sendTyping) return () => {};
 
@@ -121,8 +123,10 @@ export class Bot {
         await guild.commands.set(commands);
         logger.info(`Registered ${commands.length} slash commands in ${guild.name}.`);
       } else {
-        // After login the application always exists; commands are registered
-        // post-ready.
+        /**
+         * After login the application always exists; commands are registered
+         * post-ready.
+         */
         await client.application!.commands.set(commands);
         logger.info(
           `Registered ${commands.length} global slash commands (they can take up to an hour to appear).`,
@@ -197,3 +201,4 @@ export class Bot {
     );
   }
 }
+

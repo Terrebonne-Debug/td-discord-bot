@@ -56,8 +56,10 @@ export class ArchiveSweeper {
         try {
           await gzipFile(filePath);
         } catch {
-          // Fichier inatteignable (rotation concurrente…) : le prochain
-          // balayage réessaiera.
+          /**
+           * Fichier inatteignable (rotation concurrente…) : le prochain
+           * balayage réessaiera.
+           */
         }
         continue;
       }
@@ -68,7 +70,7 @@ export class ArchiveSweeper {
             await unlink(filePath);
           }
         } catch {
-          // L'archive a pu disparaître entre le listage et l'effacement.
+          /** L'archive a pu disparaître entre le listage et l'effacement. */
         }
       }
     }
@@ -88,3 +90,4 @@ export class ArchiveSweeper {
     timer.unref();
   }
 }
+

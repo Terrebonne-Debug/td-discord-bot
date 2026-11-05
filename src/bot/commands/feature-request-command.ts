@@ -60,7 +60,7 @@ export class FeatureRequestCommand implements Command {
     await modal.deferReply();
 
     try {
-      // GitHub limite les titres à 256 caractères ; on tronque largement en deçà.
+      /** GitHub limite les titres à 256 caractères ; on tronque largement en deçà. */
       const safeTitle = title.length > 200 ? `${title.slice(0, 199)}…` : title;
       const body = `**Demande**\n\n${description}\n\n---\nDemandé depuis Discord par ${modal.user.username}.`;
       const url = await this.#createIssue(safeTitle, body);
@@ -81,3 +81,4 @@ export class FeatureRequestCommand implements Command {
     return true;
   }
 }
+

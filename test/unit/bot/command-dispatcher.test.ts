@@ -87,7 +87,7 @@ test('CommandDispatcher ignores modals no command accepts', async () => {
 
 test('CommandDispatcher logs handler failures without crashing', async () => {
   const broken = fakeCommand(['version'], {
-    // Un rejet non-Error couvre aussi la branche String(error) du journal.
+    /** Un rejet non-Error couvre aussi la branche String(error) du journal. */
     async handle() {
       throw 'reply failed';
     },
@@ -114,3 +114,4 @@ test('CommandDispatcher logs submit failures without crashing', async () => {
     /Failed to handle feature-request submit: field failed/,
   );
 });
+

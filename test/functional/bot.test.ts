@@ -358,7 +358,7 @@ test('a feature-request submit tolerates a failure of the error reply itself', a
 
 test('a feature-request submit reports a creation failure', async () => {
   const { bot, logger } = setup({
-    // Un rejet non-Error couvre aussi la branche String(error) du journal.
+    /** Un rejet non-Error couvre aussi la branche String(error) du journal. */
     createIssue: async () => {
       throw 'api down';
     },
@@ -390,7 +390,7 @@ test('non-command interactions and unknown commands are ignored', async () => {
   const { bot, memory } = setup();
 
   await bot.handleInteraction(createFakeInteraction({ chatInput: false }));
-  // Une commande /memo résiduelle sur Discord est ignorée silencieusement.
+  /** Une commande /memo résiduelle sur Discord est ignorée silencieusement. */
   await bot.handleInteraction(createFakeInteraction({ commandName: 'memo' }));
   await bot.handleInteraction(createFakeInteraction({ commandName: 'other' }));
 
@@ -770,3 +770,4 @@ test('Discord client errors are logged', () => {
 
   assert.match(logger.messages('error')[0], /Discord client error: ws closed/);
 });
+

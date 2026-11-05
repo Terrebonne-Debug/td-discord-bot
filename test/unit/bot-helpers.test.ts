@@ -142,8 +142,10 @@ test('registerCommands registers every command globally without a guild id', asy
 
 test('registerCommands logs instead of throwing when Discord rejects the update', async () => {
   const client = createFakeClient();
-  // Un échec non-Error (ici une chaîne) couvre aussi la branche de
-  // journalisation des rejets inhabituels.
+  /**
+   * Un échec non-Error (ici une chaîne) couvre aussi la branche de
+   * journalisation des rejets inhabituels.
+   */
   client.guilds.fetch = async () => {
     throw 'discord down';
   };
@@ -153,3 +155,4 @@ test('registerCommands logs instead of throwing when Discord rejects the update'
 
   assert.match(logger.messages('error')[0], /Could not register slash commands: discord down/);
 });
+

@@ -1,11 +1,13 @@
-// Utilitaire hors-ligne : affiche la mémoire déchiffrée d'un canal public.
-//
-//   node scripts/decrypt-memory.ts <channelId>
-//
-// Lit MONGODB_URI, MONGODB_DB et MEMORY_ENCRYPTION_KEY depuis l'environnement
-// (ou .env). Les entrées encore en clair (avant l'activation du chiffrement)
-// sont affichées telles quelles ; une entrée chiffrée sans clé valide est
-// signalée à sa place. Ce script ne fait rien d'autre.
+/**
+ * Utilitaire hors-ligne : affiche la mémoire déchiffrée d'un canal public.
+ *
+ *   node scripts/decrypt-memory.ts <channelId>
+ *
+ * Lit MONGODB_URI, MONGODB_DB et MEMORY_ENCRYPTION_KEY depuis l'environnement
+ * (ou .env). Les entrées encore en clair (avant l'activation du chiffrement)
+ * sont affichées telles quelles ; une entrée chiffrée sans clé valide est
+ * signalée à sa place. Ce script ne fait rien d'autre.
+ */
 
 import 'dotenv/config';
 import { MongoClient } from 'mongodb';
@@ -71,3 +73,4 @@ if (!channelId) {
     await client.close();
   }
 }
+

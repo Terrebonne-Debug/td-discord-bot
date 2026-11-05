@@ -20,7 +20,7 @@ export class SlashConversation implements ConversationStrategy {
   }
 
   lockKey(): string {
-    // Une interaction de guilde porte toujours un identifiant de canal.
+    /** Une interaction de guilde porte toujours un identifiant de canal. */
     return this.#isDM ? this.#interaction.user.id : this.#interaction.channelId!;
   }
 
@@ -100,3 +100,4 @@ export class SlashConversation implements ConversationStrategy {
     return { key: this.memoryKey() };
   }
 }
+

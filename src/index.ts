@@ -1,4 +1,4 @@
-// Point d'entrée : un simple amorçage, toute la logique vit dans Launcher.
+/** Point d'entrée : un simple amorçage, toute la logique vit dans Launcher. */
 import { Launcher } from './startup/launcher.ts';
 import { LoggerFactory } from './logging/logger-factory.ts';
 import { config } from './config/config-loader.ts';
@@ -13,3 +13,4 @@ new Launcher({ logger })
     await logger.flush();
     process.exitCode = 1;
   });
+
