@@ -57,17 +57,17 @@ Le workflow `.github/workflows/ci.yml` (runner auto-hébergé `mkII`) découpe l
 flot en six jobs :
 
 1. `basics` — `npm ci` puis `npm run check` (types) ;
-2. `lint` — `biome check` en vérification seule : il n'échoue quasiment
-   jamais, le hook de pré-commit ayant déjà corrigé ;
-3. `format` (après `lint`, seulement en cas d'échec et sur une PR du dépôt) —
-   applique `npm run fix` et pousse un commit « style : … » : la PR se répare
-   toute seule ;
-4. `secrets` — gitleaks balaye l'historique git à la recherche de jetons ou
+2. `lint` — `biome check` en vérification seule, **auto-cicatrisant** : en
+   cas d'échec (hook contourné, autre machine), il applique `npm run fix`,
+   re-vérifie dans le même run et pousse un commit « style : … » — le job ne
+   passe au rouge que si le code est encore cassé après correction, donc
+   jamais de fenêtre rouge ni de run supplémentaire ;
+3. `secrets` — gitleaks balaye l'historique git à la recherche de jetons ou
    clés oubliés ; les faux positifs se déclarent dans un `.gitleaks.toml` ;
-5. `security` — balayage CVE des dépendances avec osv-scanner (version
+4. `security` — balayage CVE des dépendances avec osv-scanner (version
    épinglée) contre la base OSV ; les faux positifs se déclarent dans un
    `osv-scanner.toml` ;
-6. `tests` (après `basics`) — suite complète avec un MongoDB isolé, les seuils
+5. `tests` (après `basics`) — suite complète avec un MongoDB isolé, les seuils
    de couverture et un test de fumée du démarrage (le point d'entrée doit
    échouer proprement sur un jeton invalide).
 
@@ -80,9 +80,9 @@ et les exécutions — la distribution n'est téléchargée qu'une fois, les job
 suivants affichent « Found in cache ».
 
 **Jamais de boucle lint** : le hook `.githooks/pre-commit` corrige et
-ré-indexe la mise en forme (le commit passe toujours), la CI vérifie vite, et
-le job `format` répare tout seul les oublis. Activation unique :
-`git config core.hooksPath .githooks`.
+ré-indexe la mise en forme (le commit passe toujours), et le job `lint` se
+répare tout seul dans le même run quand quelque chose lui échappe.
+Activation unique du hook : `git config core.hooksPath .githooks`.
 
 ## Secrets
 

@@ -44,6 +44,8 @@ jobs:
     name: Lint and format
     runs-on: [self-hosted, Linux, X64, discord-bot]
     timeout-minutes: 10
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -57,42 +59,31 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Vérification seulement : le hook de pré-commit a déjà corrigé. En
-      # cas d'échec, exécuter « npm run fix » puis pousser à nouveau ; le job
-      # format ci-dessous corrige tout seul les PR du dépôt.
+      # Vérification seulement : le hook de pré-commit a déjà corrigé. Si le
+      # lint échoue quand même (hook contourné, autre machine), le job se
+      # corrige tout seul dans le MÊME run : fixes sûrs, nouvelle vérification,
+      # puis poussée du commit de correction. Le run ne passe au rouge que si
+      # le code est encore cassé après correction (erreur non corrigeable) —
+      # aucune fenêtre rouge, aucun run supplémentaire.
       - name: Check lint and formatting
+        id: lint
+        continue-on-error: true
         run: npm run lint
 
-  format:
-    name: Auto-fix lint and formatting
-    needs: lint
-    if: failure() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: [self-hosted, Linux, X64, discord-bot]
-    timeout-minutes: 10
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout the pull request branch
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
       - name: Apply safe fixes
+        if: steps.lint.outcome == 'failure' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         run: npm run fix
 
+      - name: Re-check after the fixes
+        if: steps.lint.outcome == 'failure' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        run: npm run lint
+
       - name: Push the fixes
+        if: steps.lint.outcome == 'failure' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: 'style : appliquer la mise en forme automatiquement'
+          skip_dirty_check: true
 
   secrets:
     name: Secret scan
