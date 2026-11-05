@@ -11,7 +11,7 @@ import type { BotLogger } from '../../models/logging/bot-logger.ts';
  * échecs de traitement sont journalisés sans jamais faire tomber la boucle
  * d'événements.
  *
- * @class
+ * @class CommandDispatcher
  */
 export class CommandDispatcher {
   /** @type {Command[]} Les commandes enregistrées, dans l'ordre de routage. */

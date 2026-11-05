@@ -2,7 +2,7 @@
  * Levée quand la mémoire de conversation ne peut pas être lue ; déclenche une
  * réponse spécifique.
  *
- * @class
+ * @class MemoryUnavailableError
  */
 export class MemoryUnavailableError extends Error {
   memoryUnavailable = true;

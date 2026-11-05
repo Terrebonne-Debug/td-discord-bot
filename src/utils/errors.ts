@@ -2,7 +2,7 @@
  * Aides statiques pour la gestion d'erreurs — le seul endroit où un rejet
  * inconnu devient un message journalisable.
  *
- * @class
+ * @class Errors
  */
 export class Errors {
   /**

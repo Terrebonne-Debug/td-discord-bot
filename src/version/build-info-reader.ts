@@ -12,7 +12,7 @@ function defaultRunGit(args: string[], cwd: string): string {
  * git, résolus une fois au démarrage. Git ou package.json manquants
  * dégradent en « inconnu » plutôt que d'échouer le démarrage.
  *
- * @class
+ * @class BuildInfoReader
  */
 export class BuildInfoReader {
   /** @type {string} Le répertoire de travail à inspecter. */

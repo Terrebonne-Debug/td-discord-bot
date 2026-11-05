@@ -72,7 +72,7 @@ const consoleFormat = winston.format.printf(({ level, message, timestamp, ...fie
  * un fichier JSON rotatif dont les rotations terminées sont archivées en
  * gzip avec la rétention configurée).
  *
- * @class
+ * @class LoggerFactory
  */
 export class LoggerFactory {
   /** @type {LoggingConfig} La configuration de journalisation. */

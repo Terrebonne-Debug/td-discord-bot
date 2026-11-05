@@ -11,7 +11,7 @@ import type { BotLogger } from '../../models/logging/bot-logger.ts';
  * `/feature-request` : ouvre le formulaire titre + description, puis crée
  * l'issue GitHub.
  *
- * @class
+ * @class FeatureRequestCommand
  */
 export class FeatureRequestCommand implements Command {
   /** @type {readonly string[]} Le nom de la commande. */

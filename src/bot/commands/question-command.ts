@@ -8,7 +8,7 @@ import type { BotLogger } from '../../models/logging/bot-logger.ts';
 /**
  * `/q` : pose une question au modèle avec la mémoire du canal.
  *
- * @class
+ * @class QuestionCommand
  */
 export class QuestionCommand implements Command {
   /** @type {readonly string[]} Le nom de la commande. */

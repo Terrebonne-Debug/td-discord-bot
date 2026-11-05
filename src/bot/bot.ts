@@ -32,7 +32,7 @@ const TYPING_INTERVAL_MS = 8_000;
  * Stratégie). Les dépendances sont injectées pour que tout le flux puisse
  * être piloté en test sans Discord ni DeepSeek.
  *
- * @class
+ * @class Bot
  */
 export class Bot {
   /**

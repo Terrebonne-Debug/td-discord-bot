@@ -6,7 +6,7 @@ import type { InteractionLike } from '../../models/discord/interaction-like.ts';
  * `/aide` et `/help` : exactement le même comportement, la liste des
  * commandes.
  *
- * @class
+ * @class HelpCommand
  */
 export class HelpCommand implements Command {
   /** @type {readonly string[]} Les deux noms, alias l'un de l'autre. */

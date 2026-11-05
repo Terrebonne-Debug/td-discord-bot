@@ -26,7 +26,7 @@ async function gzipFile(filePath: string): Promise<void> {
  * n'est jamais touché. Le balayage n'échoue jamais : un fichier illisible
  * est laissé pour le prochain passage.
  *
- * @class
+ * @class ArchiveSweeper
  */
 export class ArchiveSweeper {
   /** Nom du fichier journal actif pour une date donnée (yyyy-MM-dd). */

@@ -7,7 +7,7 @@ import type { Turn } from '../models/memory/turn.ts';
  * données authentifiées supplémentaires sont l'identifiant du canal : une
  * entrée copiée dans le document d'un autre canal ne se déchiffre plus.
  *
- * @class
+ * @class MemoryCipher
  */
 export class MemoryCipher {
   /**

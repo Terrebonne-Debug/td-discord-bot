@@ -67,7 +67,7 @@ function optionalBoolean(env: NodeJS.ProcessEnv, name: string, fallback: boolean
  * pour que chaque branche de validation soit testable sans recharger le
  * module.
  *
- * @class
+ * @class ConfigLoader
  */
 export class ConfigLoader {
   /**

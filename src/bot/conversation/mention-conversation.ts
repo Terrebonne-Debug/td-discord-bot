@@ -8,7 +8,7 @@ import type { BotSettings } from '../../models/bot/bot-settings.ts';
 /**
  * La variante mention : message Discord, réponses via reply/send.
  *
- * @class
+ * @class MentionConversation
  */
 export class MentionConversation implements ConversationStrategy {
   /** @type {MessageLike} Le message mentionnant le bot. */

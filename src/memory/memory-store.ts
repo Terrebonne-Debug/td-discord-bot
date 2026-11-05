@@ -91,7 +91,7 @@ function decryptTurns(
  * canal et partagée par tous ses membres. Les messages privés ne sont
  * jamais stockés.
  *
- * @class
+ * @class MemoryStore
  */
 export class MemoryStore implements ConversationMemory {
   #client: Closeable | null;

@@ -5,7 +5,7 @@ import type { CreateIssueOptions } from '../models/github/create-issue-options.t
  * Lève une erreur quand l'API rejette la requête (jeton invalide,
  * permissions manquantes…).
  *
- * @class
+ * @class GitHubIssues
  */
 export class GitHubIssues {
   /** @type {CreateIssueOptions} Les options de création. */

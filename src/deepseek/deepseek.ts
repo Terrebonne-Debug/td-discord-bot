@@ -10,7 +10,7 @@ import type { Turn } from '../models/memory/turn.ts';
  * et renvoie les blocs de texte concaténés. Les blocs de réflexion ne sont
  * volontairement ni renvoyés ni conservés dans l'historique.
  *
- * @class
+ * @class DeepSeek
  */
 export class DeepSeek {
   /**

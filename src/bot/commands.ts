@@ -39,7 +39,7 @@ const COMMANDS: Array<{ name: string; description: string; help: string }> = [
  * Construit les charges Discord de chaque commande slash, leur texte d'aide
  * et le modal de `/feature-request`, le tout dérivé des mêmes définitions.
  *
- * @class
+ * @class Commands
  */
 export class Commands {
   /**

@@ -19,7 +19,7 @@ import type { StartupConfig } from '../models/start/startup-config.ts';
  * client et ferment MongoDB exactement une fois, même si deux signaux
  * arrivent ensemble.
  *
- * @class
+ * @class Launcher
  */
 export class Launcher {
   /**

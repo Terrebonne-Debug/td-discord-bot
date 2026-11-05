@@ -11,7 +11,7 @@ import type { ConversationStrategy } from './conversation-strategy.ts';
  * conversation, charger l'historique, interroger le modèle, enregistrer le
  * tour, livrer la réponse.
  *
- * @class
+ * @class ConversationService
  */
 export class ConversationService {
   /** @type {ConversationMemory} La mémoire des canaux. */

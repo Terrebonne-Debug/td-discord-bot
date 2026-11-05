@@ -5,7 +5,7 @@ import type { BuildInfo } from '../../models/version/build-info.ts';
 /**
  * `/version` : affiche le numéro de version et le dernier commit.
  *
- * @class
+ * @class VersionCommand
  */
 export class VersionCommand implements Command {
   /** @type {readonly string[]} Le nom de la commande. */

@@ -8,7 +8,7 @@ import type { BotSettings } from '../../models/bot/bot-settings.ts';
 /**
  * La variante `/q` : interaction slash, réponses via deferReply/editReply.
  *
- * @class
+ * @class SlashConversation
  */
 export class SlashConversation implements ConversationStrategy {
   /** @type {InteractionLike} L'interaction slash en cours. */
