@@ -1,11 +1,9 @@
+import { Errors } from '../../utils/errors.ts';
 import type { Command } from './command.ts';
 import type { InteractionLike } from '../../models/discord/interaction-like.ts';
 import type { ModalSubmitLike } from '../../models/discord/modal-submit-like.ts';
 import type { BotLogger } from '../../models/logging/bot-logger.ts';
 
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
 
 /**
  * Routes every incoming interaction to its command: chat inputs by name,
@@ -30,7 +28,7 @@ export class CommandDispatcher {
         }
       } catch (error) {
         this.#logger.error(
-          `Failed to handle ${interaction.customId} submit: ${messageOf(error)}`,
+          `Failed to handle ${interaction.customId} submit: ${Errors.messageOf(error)}`,
         );
       }
       return;
@@ -47,7 +45,7 @@ export class CommandDispatcher {
       await command.handle(interaction);
     } catch (error) {
       this.#logger.error(
-        `Failed to handle /${interaction.commandName}: ${messageOf(error)}`,
+        `Failed to handle /${interaction.commandName}: ${Errors.messageOf(error)}`,
       );
     }
   }

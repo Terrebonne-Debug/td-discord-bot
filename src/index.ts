@@ -2,15 +2,14 @@
 import { Launcher } from './startup/launcher.ts';
 import { LoggerFactory } from './logging/logger-factory.ts';
 import { config } from './config/config-loader.ts';
+import { Errors } from './utils/errors.ts';
 
 const logger = new LoggerFactory(config).rootLogger();
 
 new Launcher({ logger })
   .start()
   .catch(async (error: unknown) => {
-    logger.error(
-      `Bot startup failed: ${error instanceof Error ? error.message : String(error)}`,
-    );
+    logger.error(`Bot startup failed: ${Errors.messageOf(error)}`);
     await logger.flush();
     process.exitCode = 1;
   });

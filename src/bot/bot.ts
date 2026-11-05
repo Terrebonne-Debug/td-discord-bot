@@ -2,6 +2,7 @@ import { ChannelType, Events } from 'discord.js';
 import { defaultDeepSeek, DeepSeek } from '../deepseek/deepseek.ts';
 import { GitHubIssues } from '../github/github-issues.ts';
 import { LoggerFactory } from '../logging/logger-factory.ts';
+import { Errors } from '../utils/errors.ts';
 import { Commands } from './commands.ts';
 import { CommandDispatcher } from './commands/command-dispatcher.ts';
 import { FeatureRequestCommand } from './commands/feature-request-command.ts';
@@ -24,10 +25,6 @@ import type { BuildInfo } from '../models/version/build-info.ts';
 
 const DISCORD_MESSAGE_LIMIT = 2000;
 const TYPING_INTERVAL_MS = 8_000;
-
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
 
 /**
  * Façade du bot : branche les événements Discord sur le répartiteur de
@@ -132,7 +129,7 @@ export class Bot {
         );
       }
     } catch (error) {
-      logger.error(`Could not register slash commands: ${messageOf(error)}`);
+      logger.error(`Could not register slash commands: ${Errors.messageOf(error)}`);
     }
   }
 
@@ -180,7 +177,7 @@ export class Bot {
       void this.handleMessage(message);
     });
     client.on(Events.Error, (error: Error) => {
-      this.#logger.error(`Discord client error: ${messageOf(error)}`);
+      this.#logger.error(`Discord client error: ${Errors.messageOf(error)}`);
     });
   }
 

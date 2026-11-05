@@ -10,6 +10,7 @@
 import 'dotenv/config';
 import { MongoClient } from 'mongodb';
 import { MemoryCipher } from '../src/crypto/memory-cipher.ts';
+import { Errors } from '../src/utils/errors.ts';
 import type { Turn } from '../src/models/memory/turn.ts';
 
 const channelId = process.argv[2];
@@ -64,7 +65,7 @@ if (!channelId) {
       console.log(JSON.stringify({ channelId, turns }, null, 2));
     }
   } catch (error) {
-    console.error(`Échec de la lecture : ${error instanceof Error ? error.message : String(error)}`);
+    console.error(`Échec de la lecture : ${Errors.messageOf(error)}`);
     process.exitCode = 1;
   } finally {
     await client.close();

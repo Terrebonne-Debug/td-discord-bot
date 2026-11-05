@@ -1,14 +1,12 @@
 import { MessageFlags } from 'discord.js';
 import { Commands } from '../commands.ts';
+import { Errors } from '../../utils/errors.ts';
 import type { Command } from './command.ts';
 import type { InteractionLike } from '../../models/discord/interaction-like.ts';
 import type { ModalSubmitLike } from '../../models/discord/modal-submit-like.ts';
 import type { BotSettings } from '../../models/bot/bot-settings.ts';
 import type { BotLogger } from '../../models/logging/bot-logger.ts';
 
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
 
 /** `/feature-request` : ouvre le formulaire titre + description, puis crée l'issue. */
 export class FeatureRequestCommand implements Command {
@@ -72,7 +70,7 @@ export class FeatureRequestCommand implements Command {
         allowedMentions: { parse: [] },
       });
     } catch (error) {
-      this.#logger.error(`Could not create the feature request issue: ${messageOf(error)}`);
+      this.#logger.error(`Could not create the feature request issue: ${Errors.messageOf(error)}`);
       await modal
         .editReply({
           content: 'Impossible de créer la demande pour le moment. Réessayez plus tard.',

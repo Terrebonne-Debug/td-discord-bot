@@ -1,12 +1,10 @@
 import { MemoryUnavailableError } from '../../memory/memory-unavailable-error.ts';
+import { Errors } from '../../utils/errors.ts';
 import type { BotLogger } from '../../models/logging/bot-logger.ts';
 import type { ConversationMemory } from '../../models/memory/conversation-memory.ts';
 import type { Turn } from '../../models/memory/turn.ts';
 import type { ConversationStrategy } from './conversation-strategy.ts';
 
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
 
 /**
  * The conversation algorithm shared by /q and message mentions, parameterized
@@ -47,7 +45,7 @@ export class ConversationService {
       }
     } catch (error) {
       this.#logger.error(
-        `${strategy.errorLabel()}: ${messageOf(error)}`,
+        `${strategy.errorLabel()}: ${Errors.messageOf(error)}`,
         strategy.errorFields(),
       );
       await strategy.reportError(error).catch(() => {});
@@ -93,7 +91,7 @@ export class ConversationService {
         try {
           await this.#memory.appendTurn(memoryKey, prompt, reply);
         } catch (error) {
-          log.warn(`Could not save the conversation turn: ${messageOf(error)}`);
+          log.warn(`Could not save the conversation turn: ${Errors.messageOf(error)}`);
         }
       }
 
