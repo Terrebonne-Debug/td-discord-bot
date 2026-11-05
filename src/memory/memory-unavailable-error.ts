@@ -1,9 +1,14 @@
-/** Thrown when the conversation memory cannot be read; shows a specific reply. */
+/**
+ * Levée quand la mémoire de conversation ne peut pas être lue ; déclenche une
+ * réponse spécifique.
+ *
+ * @class
+ */
 export class MemoryUnavailableError extends Error {
   memoryUnavailable = true;
 
   constructor(cause: unknown) {
-    super('Conversation memory is unavailable.', { cause });
+    super('La mémoire de conversation est indisponible.', { cause });
     this.name = 'MemoryUnavailableError';
   }
 }

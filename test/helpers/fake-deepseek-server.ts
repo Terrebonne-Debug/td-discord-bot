@@ -17,8 +17,8 @@ export interface FakeDeepSeekServer {
 }
 
 /**
- * Minimal DeepSeek (Anthropic-compatible) endpoint. It records every request
- * and answers with scripted text so the real Anthropic SDK can be exercised.
+ * Point d'accès DeepSeek minimal (compatible Anthropic). Enregistre chaque
+ * requête et répond avec un texte scripté pour exercer le vrai SDK Anthropic.
  */
 export async function startFakeDeepSeek({
   replies,

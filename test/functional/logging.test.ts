@@ -27,7 +27,7 @@ async function waitFor(condition: () => Promise<boolean>, timeoutMs = 5_000): Pr
   }
 }
 
-test('the rotating file logger turns size rotations into gzip archives', async () => {
+test('le journal fichier rotatif archive les rotations par taille en gzip', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'td-logs-'));
   const logger = new LoggerFactory(fileConfig(dir)).rootLogger({ isTTY: false });
 
@@ -70,7 +70,7 @@ test('the rotating file logger turns size rotations into gzip archives', async (
   }
 });
 
-test('archiveLogs deletes expired archives, keeps fresh ones and survives unreadable files', async () => {
+test('ArchiveSweeper supprime les archives expirées, garde les fraîches et survit aux fichiers illisibles', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'td-logs-'));
   try {
     const day = 86_400_000;
@@ -103,7 +103,7 @@ test('archiveLogs deletes expired archives, keeps fresh ones and survives unread
   }
 });
 
-test('archiveLogs tolerates a directory that has disappeared', async () => {
+test('ArchiveSweeper tolère un dossier disparu', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'td-logs-'));
   await rm(dir, { recursive: true, force: true });
 

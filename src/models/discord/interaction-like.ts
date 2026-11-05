@@ -2,7 +2,11 @@ import type { ModalSubmitLike } from './modal-submit-like.ts';
 import type { ReplyPayload } from './reply-payload.ts';
 import type { TypingChannel } from './typing-channel.ts';
 
-/** The slice of a chat-input interaction the bot reads. */
+/**
+ * La tranche d'une interaction slash que le bot lit.
+ *
+ * @interface
+ */
 export interface InteractionLike {
   commandName: string;
   channelId: string | null;

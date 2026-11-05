@@ -1,6 +1,10 @@
 import type { BotLogger } from '../logging/bot-logger.ts';
 
-/** Options of MemoryStore.connect(). */
+/**
+ * Options de MemoryStore.connect().
+ *
+ * @interface
+ */
 export interface MemoryConnectOptions {
   uri: string | null;
   dbName: string;

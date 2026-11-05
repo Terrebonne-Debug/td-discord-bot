@@ -35,7 +35,7 @@ const disabledSettings: DeepSeekSettings = {
   deepseekTemperature: 0.5,
 };
 
-test('DeepSeek sends thinking options and concatenates text blocks', async () => {
+test('DeepSeek envoie les options de réflexion et concatène les blocs de texte', async () => {
   const client = fakeClient([
     { type: 'thinking', thinking: 'hidden' },
     { type: 'text', text: '  hello ' },
@@ -63,7 +63,7 @@ test('DeepSeek sends thinking options and concatenates text blocks', async () =>
   assert.equal('temperature' in params, false);
 });
 
-test('DeepSeek sends temperature and disabled thinking when configured', async () => {
+test('DeepSeek envoie la température et la réflexion désactivée quand configuré', async () => {
   const client = fakeClient([{ type: 'text', text: 'ok' }]);
   const deepseek = new DeepSeek({ settings: disabledSettings, client });
 
@@ -75,16 +75,16 @@ test('DeepSeek sends temperature and disabled thinking when configured', async (
   assert.equal('output_config' in params, false);
 });
 
-test('DeepSeek falls back when the model returns no text', async () => {
+test('DeepSeek replie quand le modèle ne renvoie aucun texte', async () => {
   const client = fakeClient([{ type: 'thinking', thinking: 'only thoughts' }]);
   const deepseek = new DeepSeek({ settings: enabledSettings, client });
 
   const reply = await deepseek.ask([], 'prompt');
 
-  assert.equal(reply, 'The model returned an empty response.');
+  assert.equal(reply, 'Le modèle a renvoyé une réponse vide.');
 });
 
-test('DeepSeek.createClient builds an Anthropic client from settings', () => {
+test('DeepSeek.createClient construit un client Anthropic depuis les réglages', () => {
   const client = DeepSeek.createClient({
     deepseekApiKey: 'test-key',
     deepseekBaseUrl: 'http://127.0.0.1:9999',
@@ -95,18 +95,18 @@ test('DeepSeek.createClient builds an Anthropic client from settings', () => {
   assert.equal(typeof client.messages.create, 'function');
 });
 
-test('DeepSeek.describeError maps timeouts, statuses and unknown failures', () => {
+test('DeepSeek.describeError cartographie les délais, statuts et échecs inconnus', () => {
   assert.match(
     DeepSeek.describeError({ name: 'APIConnectionTimeoutError' }),
-    /took too long/,
+    /a mis trop de temps à répondre/,
   );
-  assert.match(DeepSeek.describeError({ status: 400 }), /rejected the request/);
-  assert.match(DeepSeek.describeError({ status: 401 }), /rejected the API key/);
-  assert.match(DeepSeek.describeError({ status: 402 }), /insufficient balance/);
-  assert.match(DeepSeek.describeError({ status: 403 }), /refused the request/);
-  assert.match(DeepSeek.describeError({ status: 404 }), /endpoint or model was not found/);
-  assert.match(DeepSeek.describeError({ status: 429 }), /rate limiting/);
-  assert.match(DeepSeek.describeError({ status: 503 }), /temporarily unavailable/);
-  assert.match(DeepSeek.describeError({ status: 418 }), /request failed/);
-  assert.match(DeepSeek.describeError(undefined), /request failed/);
+  assert.match(DeepSeek.describeError({ status: 400 }), /a rejeté la requête/);
+  assert.match(DeepSeek.describeError({ status: 401 }), /a rejeté la clé API/);
+  assert.match(DeepSeek.describeError({ status: 402 }), /solde insuffisant/);
+  assert.match(DeepSeek.describeError({ status: 403 }), /a refusé la requête/);
+  assert.match(DeepSeek.describeError({ status: 404 }), /point d'accès ou le modèle DeepSeek configuré est introuvable/);
+  assert.match(DeepSeek.describeError({ status: 429 }), /limite le débit/);
+  assert.match(DeepSeek.describeError({ status: 503 }), /momentanément indisponible/);
+  assert.match(DeepSeek.describeError({ status: 418 }), /requête DeepSeek a échoué/);
+  assert.match(DeepSeek.describeError(undefined), /requête DeepSeek a échoué/);
 });

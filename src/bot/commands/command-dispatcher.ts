@@ -4,22 +4,38 @@ import type { InteractionLike } from '../../models/discord/interaction-like.ts';
 import type { ModalSubmitLike } from '../../models/discord/modal-submit-like.ts';
 import type { BotLogger } from '../../models/logging/bot-logger.ts';
 
-
 /**
- * Routes every incoming interaction to its command: chat inputs by name,
- * modal submissions through the handleSubmit hook of the owning command.
- * Unknown interactions are ignored; handler failures are logged without
- * ever crashing the event loop.
+ * Achemine chaque interaction entrante vers sa commande : les entrées de
+ * discussion par nom, les soumissions de modal par le hook handleSubmit de la
+ * commande propriétaire. Les interactions inconnues sont ignorées ; les
+ * échecs de traitement sont journalisés sans jamais faire tomber la boucle
+ * d'événements.
+ *
+ * @class
  */
 export class CommandDispatcher {
+  /** @type {Command[]} Les commandes enregistrées, dans l'ordre de routage. */
   #commands: Command[];
+  /** @type {BotLogger} Le journal du bot. */
   #logger: BotLogger;
 
+  /**
+   * @constructor
+   * @param {Command[]} commands - Les commandes à router.
+   * @param {BotLogger} logger - Le journal du bot.
+   */
   constructor({ commands, logger }: { commands: Command[]; logger: BotLogger }) {
     this.#commands = commands;
     this.#logger = logger;
   }
 
+  /**
+   * Achemine une interaction.
+   *
+   * @method
+   * @param {InteractionLike | ModalSubmitLike} interaction - L'interaction reçue.
+   * @returns {Promise<void>}
+   */
   async dispatch(interaction: InteractionLike | ModalSubmitLike): Promise<void> {
     if (interaction.isModalSubmit()) {
       try {
@@ -28,7 +44,7 @@ export class CommandDispatcher {
         }
       } catch (error) {
         this.#logger.error(
-          `Failed to handle ${interaction.customId} submit: ${Errors.messageOf(error)}`,
+          `Échec du traitement de la soumission ${interaction.customId} : ${Errors.messageOf(error)}`,
         );
       }
       return;
@@ -45,7 +61,7 @@ export class CommandDispatcher {
       await command.handle(interaction);
     } catch (error) {
       this.#logger.error(
-        `Failed to handle /${interaction.commandName}: ${Errors.messageOf(error)}`,
+        `Échec du traitement de /${interaction.commandName} : ${Errors.messageOf(error)}`,
       );
     }
   }

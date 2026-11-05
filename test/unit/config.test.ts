@@ -10,7 +10,7 @@ function baseEnv(overrides: Record<string, string> = {}): Record<string, string>
   };
 }
 
-test('parseConfig applies every default', () => {
+test('ConfigLoader.parse applique chaque défaut', () => {
   const config = new ConfigLoader().parse(baseEnv());
 
   assert.equal(config.discordToken, 'discord-token');
@@ -23,7 +23,7 @@ test('parseConfig applies every default', () => {
   assert.equal(config.deepseekMaxTokens, 8192);
   assert.equal(config.deepseekTemperature, null);
   assert.equal(config.deepseekTimeoutMs, 180_000);
-  assert.match(config.systemPrompt, /helpful Discord bot/);
+  assert.match(config.systemPrompt, /bot Discord utile propulsé par DeepSeek/);
   assert.equal(config.maxHistoryTurns, 10);
   assert.equal(config.maxPromptChars, 4000);
   assert.equal(config.mongodbUri, null);
@@ -41,7 +41,7 @@ test('parseConfig applies every default', () => {
   assert.ok(Object.isFrozen(config));
 });
 
-test('parseConfig trims values, lowercases enums and parses every override', () => {
+test('ConfigLoader.parse nettoie les valeurs, minuscule les énumérations et applique chaque remplacement', () => {
   const config = new ConfigLoader().parse({
     DISCORD_TOKEN: '  discord-token  ',
     DISCORD_GUILD_ID: 'guild-1',
@@ -96,92 +96,92 @@ test('parseConfig trims values, lowercases enums and parses every override', () 
   assert.equal(config.githubRepository, 'owner/custom-repo');
 });
 
-test('parseConfig rejects missing and placeholder required variables', () => {
-  assert.throws(() => new ConfigLoader().parse({ DEEPSEEK_API_KEY: 'key' }), /Missing required environment variable: DISCORD_TOKEN/);
-  assert.throws(() => new ConfigLoader().parse({ DISCORD_TOKEN: 'token' }), /Missing required environment variable: DEEPSEEK_API_KEY/);
-  assert.throws(() => new ConfigLoader().parse({ DISCORD_TOKEN: '   ', DEEPSEEK_API_KEY: 'key' }), /Missing required/);
+test('ConfigLoader.parse rejette les variables requises manquantes ou d\'exemple', () => {
+  assert.throws(() => new ConfigLoader().parse({ DEEPSEEK_API_KEY: 'key' }), /Variable d'environnement requise manquante : DISCORD_TOKEN/);
+  assert.throws(() => new ConfigLoader().parse({ DISCORD_TOKEN: 'token' }), /Variable d'environnement requise manquante : DEEPSEEK_API_KEY/);
+  assert.throws(() => new ConfigLoader().parse({ DISCORD_TOKEN: '   ', DEEPSEEK_API_KEY: 'key' }), /requise manquante/);
   assert.throws(
     () => new ConfigLoader().parse({ DISCORD_TOKEN: 'your_discord_token', DEEPSEEK_API_KEY: 'key' }),
-    /still has its placeholder value/,
+    /a encore sa valeur d'exemple/,
   );
 });
 
-test('parseConfig rejects invalid enum values', () => {
+test('ConfigLoader.parse rejette les valeurs d\'énumération invalides', () => {
   assert.throws(
     () => new ConfigLoader().parse(baseEnv({ DEEPSEEK_THINKING: 'sometimes' })),
-    /DEEPSEEK_THINKING must be "enabled" or "disabled"/,
+    /DEEPSEEK_THINKING doit valoir « enabled » ou « disabled »/,
   );
   assert.throws(
     () => new ConfigLoader().parse(baseEnv({ DEEPSEEK_EFFORT: 'extreme' })),
-    /DEEPSEEK_EFFORT must be one of/,
+    /DEEPSEEK_EFFORT doit être l'un de/,
   );
 });
 
-test('parseConfig rejects invalid positive integers and numbers', () => {
+test('ConfigLoader.parse rejette les entiers positifs et nombres invalides', () => {
   assert.throws(
     () => new ConfigLoader().parse(baseEnv({ DEEPSEEK_MAX_TOKENS: '0' })),
-    /DEEPSEEK_MAX_TOKENS must be a positive integer/,
+    /DEEPSEEK_MAX_TOKENS doit être un entier positif/,
   );
   assert.throws(
     () => new ConfigLoader().parse(baseEnv({ DEEPSEEK_MAX_TOKENS: 'abc' })),
-    /DEEPSEEK_MAX_TOKENS must be a positive integer/,
+    /DEEPSEEK_MAX_TOKENS doit être un entier positif/,
   );
   assert.throws(
     () => new ConfigLoader().parse(baseEnv({ DEEPSEEK_TIMEOUT_MS: '-5' })),
-    /DEEPSEEK_TIMEOUT_MS must be a positive integer/,
+    /DEEPSEEK_TIMEOUT_MS doit être un entier positif/,
   );
   assert.throws(
     () => new ConfigLoader().parse(baseEnv({ MAX_HISTORY_TURNS: '1.5' })),
-    /MAX_HISTORY_TURNS must be a positive integer/,
+    /MAX_HISTORY_TURNS doit être un entier positif/,
   );
   assert.throws(
     () => new ConfigLoader().parse(baseEnv({ MAX_PROMPT_CHARS: 'nope' })),
-    /MAX_PROMPT_CHARS must be a positive integer/,
+    /MAX_PROMPT_CHARS doit être un entier positif/,
   );
   assert.throws(
     () => new ConfigLoader().parse(baseEnv({ MONGODB_TIMEOUT_MS: '0' })),
-    /MONGODB_TIMEOUT_MS must be a positive integer/,
+    /MONGODB_TIMEOUT_MS doit être un entier positif/,
   );
 });
 
-test('parseConfig validates the logging settings', () => {
+test('ConfigLoader.parse valide les réglages de journalisation', () => {
   assert.throws(
     () => new ConfigLoader().parse(baseEnv({ LOG_LEVEL: 'verbose' })),
-    /LOG_LEVEL must be one of/,
+    /LOG_LEVEL doit être l'un de/,
   );
   assert.throws(
     () => new ConfigLoader().parse(baseEnv({ LOG_FILE_ENABLED: 'oui' })),
-    /LOG_FILE_ENABLED must be "true" or "false"/,
+    /LOG_FILE_ENABLED doit valoir « true » ou « false »/,
   );
   assert.throws(
     () => new ConfigLoader().parse(baseEnv({ LOG_MAX_SIZE_MB: '0' })),
-    /LOG_MAX_SIZE_MB must be a positive integer/,
+    /LOG_MAX_SIZE_MB doit être un entier positif/,
   );
   assert.throws(
     () => new ConfigLoader().parse(baseEnv({ LOG_RETENTION_DAYS: '-1' })),
-    /LOG_RETENTION_DAYS must be a positive integer/,
+    /LOG_RETENTION_DAYS doit être un entier positif/,
   );
 });
 
-test('parseConfig validates the optional temperature and TTL', () => {
+test('ConfigLoader.parse valide la température et le TTL facultatifs', () => {
   assert.throws(
     () => new ConfigLoader().parse(baseEnv({ DEEPSEEK_TEMPERATURE: '-1' })),
-    /DEEPSEEK_TEMPERATURE must be a number from 0 to 2/,
+    /DEEPSEEK_TEMPERATURE doit être un nombre de 0 à 2/,
   );
   assert.throws(
     () => new ConfigLoader().parse(baseEnv({ DEEPSEEK_TEMPERATURE: '2.5' })),
-    /DEEPSEEK_TEMPERATURE must be a number from 0 to 2/,
+    /DEEPSEEK_TEMPERATURE doit être un nombre de 0 à 2/,
   );
   assert.throws(
     () => new ConfigLoader().parse(baseEnv({ DEEPSEEK_TEMPERATURE: 'warm' })),
-    /DEEPSEEK_TEMPERATURE must be a number from 0 to 2/,
+    /DEEPSEEK_TEMPERATURE doit être un nombre de 0 à 2/,
   );
   assert.throws(
     () => new ConfigLoader().parse(baseEnv({ MEMORY_TTL_DAYS: '0' })),
-    /MEMORY_TTL_DAYS must be a positive integer/,
+    /MEMORY_TTL_DAYS doit être un entier positif/,
   );
   assert.throws(
     () => new ConfigLoader().parse(baseEnv({ MEMORY_TTL_DAYS: 'forever' })),
-    /MEMORY_TTL_DAYS must be a positive integer/,
+    /MEMORY_TTL_DAYS doit être un entier positif/,
   );
 });

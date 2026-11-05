@@ -74,11 +74,13 @@ export interface FakeDiscord {
 }
 
 /**
- * Minimal Discord REST + gateway used to drive the real discord.js client.
+ * REST + passerelle Discord minimaux utilisés pour piloter le vrai client
+ * discord.js.
  *
- * REST is served under /v10 (discord.js uses version 10 by default) and the
- * WebSocket gateway performs the real HELLO / IDENTIFY / READY / GUILD_CREATE
- * handshake, then lets the test dispatch gateway events.
+ * Le REST est servi sous /v10 (discord.js utilise la version 10 par défaut)
+ * et la passerelle WebSocket effectue la vraie poignée de main HELLO /
+ * IDENTIFY / READY / GUILD_CREATE, puis laisse le test émettre les événements
+ * de la passerelle.
  */
 export async function startFakeDiscord({
   applicationId = 'app-1',

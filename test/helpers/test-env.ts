@@ -1,6 +1,6 @@
 /**
- * Preloaded with --import so no test can accidentally read the developer's
- * real .env or shell configuration.
+ * Préchargé via --import pour qu'aucun test ne puisse lire accidentellement
+ * le vrai .env ou la configuration shell du développeur.
  */
 process.env.DOTENV_CONFIG_PATH = '/dev/null';
 

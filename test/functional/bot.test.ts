@@ -65,7 +65,7 @@ async function deferred() {
   return { promise, resolve };
 }
 
-test('/q in a guild uses shared channel memory and replies through the interaction', async () => {
+test('/q en guilde utilise la mémoire partagée du canal et répond via l\'interaction', async () => {
   const memory = createFakeMemory({
     histories: { 'channel-1': [{ role: 'user', content: 'earlier' }] },
   });
@@ -112,7 +112,7 @@ test('/q in a guild uses shared channel memory and replies through the interacti
   assert.deepEqual(logger.messages('error'), []);
 });
 
-test('/q in a DM answers without reading or storing any memory', async () => {
+test('/q en MP répond sans lire ni stocker de mémoire', async () => {
   const memory = createFakeMemory({ histories: { 'user-1': [{ role: 'user', content: 'old' }] } });
   const asks: Array<{ history: Turn[]; prompt: string }> = [];
   const { bot } = setup({
@@ -143,7 +143,7 @@ test('/q in a DM answers without reading or storing any memory', async () => {
   assert.equal(interaction.calls.at(-1)?.payload?.content, 'private answer');
 });
 
-test('/version replies with the version and the last commit', async () => {
+test('/version répond avec la version et le dernier commit', async () => {
   const { bot } = setup({ buildInfo: { version: '1.2.3', commit: 'deadbeef' } });
 
   const interaction = createFakeInteraction({ commandName: 'version' });
@@ -155,7 +155,7 @@ test('/version replies with the version and the last commit', async () => {
   assert.match(interaction.calls[0].payload?.content ?? '', /deadbeef/);
 });
 
-test('/aide and /help reply with exactly the same command list', async () => {
+test('/aide et /help répondent exactement avec la même liste de commandes', async () => {
   const { bot } = setup();
 
   const aide = createFakeInteraction({ commandName: 'aide' });
@@ -174,7 +174,7 @@ test('/aide and /help reply with exactly the same command list', async () => {
   assert.equal(aideContent.includes('`/help` (alias'), false, 'pas de ligne /help séparée');
 });
 
-test('/feature-request shows the title and description modal', async () => {
+test('/feature-request affiche le modal de titre et de description', async () => {
   const { bot } = setup();
 
   const interaction = createFakeInteraction({ commandName: 'feature-request' });
@@ -192,7 +192,7 @@ test('/feature-request shows the title and description modal', async () => {
   assert.equal(inputs[1].max_length, 4000);
 });
 
-test('/feature-request replies it is not configured without a GitHub token', async () => {
+test('/feature-request répond qu\'il n\'est pas configuré sans jeton GitHub', async () => {
   const issues: string[] = [];
   const { bot } = setup({
     botSettings: { ...settings, githubToken: null },
@@ -212,7 +212,7 @@ test('/feature-request replies it is not configured without a GitHub token', asy
   assert.deepEqual(issues, []);
 });
 
-test('/feature-request handler failures are logged instead of crashing', async () => {
+test('les échecs du gestionnaire /feature-request sont journalisés au lieu de planter', async () => {
   const { bot, logger } = setup();
 
   const interaction = createFakeInteraction({
@@ -221,10 +221,10 @@ test('/feature-request handler failures are logged instead of crashing', async (
   });
   await bot.handleInteraction(interaction);
 
-  assert.match(logger.messages('error')[0], /Failed to handle \/feature-request: showModal failed/);
+  assert.match(logger.messages('error')[0], /Échec du traitement de \/feature-request : showModal a échoué/);
 });
 
-test('a feature-request submit creates the issue with title and description', async () => {
+test('une soumission feature-request crée l\'issue avec titre et description', async () => {
   const issues: Array<{ title: string; body: string }> = [];
   const { bot, logger } = setup({
     createIssue: async (title, body) => {
@@ -253,7 +253,7 @@ test('a feature-request submit creates the issue with title and description', as
   assert.match(logger.messages('info')[0], /Issue de demande créée/);
 });
 
-test('a feature-request submit truncates titles beyond 200 characters', async () => {
+test('une soumission feature-request tronque les titres au-delà de 200 caractères', async () => {
   const issues: Array<{ title: string; body: string }> = [];
   const { bot } = setup({
     createIssue: async (title, body) => {
@@ -268,7 +268,7 @@ test('a feature-request submit truncates titles beyond 200 characters', async ()
   assert.equal(issues[0].title.endsWith('…'), true);
 });
 
-test('a feature-request submit rejects an empty title or description', async () => {
+test('une soumission feature-request rejette un titre ou une description vide', async () => {
   const issues: string[] = [];
   const { bot } = setup({
     createIssue: async () => {
@@ -290,7 +290,7 @@ test('a feature-request submit rejects an empty title or description', async () 
   assert.deepEqual(issues, []);
 });
 
-test('a feature-request submit ignores unknown modals', async () => {
+test('une soumission feature-request ignore les modals inconnus', async () => {
   const issues: string[] = [];
   const { bot } = setup({
     createIssue: async () => {
@@ -306,15 +306,15 @@ test('a feature-request submit ignores unknown modals', async () => {
   assert.deepEqual(issues, []);
 });
 
-test('a feature-request submit handler failure is logged instead of crashing', async () => {
+test('un échec du gestionnaire de soumission feature-request est journalisé au lieu de planter', async () => {
   const { bot, logger } = setup();
 
   await bot.handleInteraction(createFakeModalSubmit({ failures: { getTextInputValue: 1 } }));
 
-  assert.match(logger.messages('error')[0], /Failed to handle feature-request submit/);
+  assert.match(logger.messages('error')[0], /Échec du traitement de la soumission feature-request/);
 });
 
-test('createIssueFor posts through the configured token and repository', async () => {
+test('Bot.createIssueFor publie avec le jeton et le dépôt configurés', async () => {
   const calls: Array<{ url: string; token: string; body: string }> = [];
   const fetchFn = async (input: string | Request | URL, init: RequestInit = {}) => {
     calls.push({
@@ -338,13 +338,13 @@ test('createIssueFor posts through the configured token and repository', async (
   assert.deepEqual(JSON.parse(calls[0].body), { title: 'titre', body: 'corps' });
 });
 
-test('createIssueFor throws without a GitHub token', () => {
+test('Bot.createIssueFor lève une erreur sans jeton GitHub', () => {
   const createIssue = Bot.createIssueFor({ ...settings, githubToken: null });
 
-  assert.throws(() => createIssue('titre', 'corps'), /GITHUB_TOKEN is not set/);
+  assert.throws(() => createIssue('titre', 'corps'), /GITHUB_TOKEN n'est pas défini/);
 });
 
-test('a feature-request submit tolerates a failure of the error reply itself', async () => {
+test('une soumission feature-request tolère l\'échec de la réponse d\'erreur elle-même', async () => {
   const { bot, logger } = setup({
     createIssue: async () => {
       throw new Error('api down');
@@ -353,40 +353,40 @@ test('a feature-request submit tolerates a failure of the error reply itself', a
 
   const modal = createFakeModalSubmit({ failures: { editReply: 1 } });
   await assert.doesNotReject(bot.handleInteraction(modal));
-  assert.match(logger.messages('error')[0], /Could not create the feature request issue/);
+  assert.match(logger.messages('error')[0], /Impossible de créer l'issue de demande/);
 });
 
-test('a feature-request submit reports a creation failure', async () => {
+test('une soumission feature-request rapporte un échec de création', async () => {
   const { bot, logger } = setup({
     /** Un rejet non-Error couvre aussi la branche String(error) du journal. */
     createIssue: async () => {
-      throw 'api down';
+      throw 'api en panne';
     },
   });
 
   const modal = createFakeModalSubmit();
   await bot.handleInteraction(modal);
 
-  assert.match(logger.messages('error')[0], /Could not create the feature request issue: api down/);
+  assert.match(logger.messages('error')[0], /Impossible de créer l'issue de demande : api en panne/);
   assert.equal(modal.calls.at(-1)?.method, 'editReply');
   assert.match(modal.calls.at(-1)?.payload?.content ?? '', /Impossible de créer la demande/);
 });
 
-test('non-Error failures are logged without crashing', async () => {
+test('les échecs non-Error sont journalisés sans planter', async () => {
   const { bot, logger } = setup({
     ask: async () => {
-      throw 'model exploded';
+      throw 'modèle explosé';
     },
   });
   const message = createFakeMessage();
 
   await assert.doesNotReject(bot.handleMessage(message));
 
-  assert.match(logger.messages('error')[0], /Failed to handle message: model exploded/);
-  assert.match(message.calls.at(-1)?.payload?.content ?? '', /request failed/);
+  assert.match(logger.messages('error')[0], /Échec du traitement du message : modèle explosé/);
+  assert.match(message.calls.at(-1)?.payload?.content ?? '', /requête DeepSeek a échoué/);
 });
 
-test('non-command interactions and unknown commands are ignored', async () => {
+test('les interactions non-commandes et les commandes inconnues sont ignorées', async () => {
   const { bot, memory } = setup();
 
   await bot.handleInteraction(createFakeInteraction({ chatInput: false }));
@@ -397,22 +397,22 @@ test('non-command interactions and unknown commands are ignored', async () => {
   assert.equal(memory.calls.length, 0);
 });
 
-test('/q rejects empty and oversized prompts before deferring', async () => {
+test('/q rejette les prompts vides et trop longs avant de différer', async () => {
   const { bot, memory } = setup();
 
   const empty = createFakeInteraction({ prompt: '   ' });
   await bot.handleInteraction(empty);
-  assert.equal(empty.calls[0].payload?.content, 'Please include a question.');
+  assert.equal(empty.calls[0].payload?.content, 'Pose ta question.');
   assert.equal(empty.calls[0].payload?.flags, memoOn);
 
   const long = createFakeInteraction({ prompt: 'x'.repeat(51) });
   await bot.handleInteraction(long);
-  assert.match(long.calls[0].payload?.content ?? '', /under 50 characters/);
+  assert.match(long.calls[0].payload?.content ?? '', /sous 50 caractères/);
 
   assert.equal(memory.calls.length, 0);
 });
 
-test('a second /q in the same channel waits while the first is in flight', async () => {
+test('un second /q dans le même canal attend pendant que le premier est en vol', async () => {
   const gate = await deferred();
   const memory = createFakeMemory();
   const { bot } = setup({
@@ -432,7 +432,7 @@ test('a second /q in the same channel waits while the first is in flight', async
 
   assert.match(
     second.calls.find((call) => call.method === 'editReply')?.payload?.content ?? '',
-    /still working on the previous question/,
+    /Je travaille encore sur la question précédente/,
   );
 
   gate.resolve();
@@ -440,19 +440,19 @@ test('a second /q in the same channel waits while the first is in flight', async
   assert.equal(first.calls.at(-1)?.payload?.content, 'first answer');
 });
 
-test('/q reports a memory read failure with the memory-specific message', async () => {
+test('/q rapporte un échec de lecture mémoire avec le message spécifique', async () => {
   const memory = createFakeMemory({ failures: { getHistory: 1 } });
   const { bot, logger } = setup({ memory });
 
   const interaction = createFakeInteraction({ guildId: 'guild-1', channelId: 'channel-1' });
   await bot.handleInteraction(interaction);
 
-  assert.match(logger.messages('error')[0], /Failed to handle \/q/);
-  assert.match(interaction.calls.at(-1)?.payload?.content ?? '', /memory is temporarily unavailable/);
+  assert.match(logger.messages('error')[0], /Échec du traitement de \/q/);
+  assert.match(interaction.calls.at(-1)?.payload?.content ?? '', /mémoire de conversation est momentanément indisponible/);
   assert.equal(interaction.calls.at(-1)?.payload?.flags, undefined);
 });
 
-test('/q reports model failures after deferring', async () => {
+test('/q rapporte les échecs du modèle après le report', async () => {
   const { bot } = setup({
     ask: async () => {
       throw Object.assign(new Error('rate limited'), { status: 429 });
@@ -464,10 +464,10 @@ test('/q reports model failures after deferring', async () => {
 
   assert.equal(interaction.deferred, true);
   assert.equal(interaction.calls.at(-1)?.method, 'editReply');
-  assert.match(interaction.calls.at(-1)?.payload?.content ?? '', /rate limiting/);
+  assert.match(interaction.calls.at(-1)?.payload?.content ?? '', /limite le débit/);
 });
 
-test('/q replies ephemerally when an early failure happens before deferring', async () => {
+test('/q répond éphémèrement quand un échec précoce survient avant le report', async () => {
   const { bot } = setup();
 
   const interaction = createFakeInteraction({ prompt: '   ', failures: { reply: 1 } });
@@ -476,11 +476,11 @@ test('/q replies ephemerally when an early failure happens before deferring', as
   assert.equal(interaction.deferred, false);
   assert.equal(interaction.calls.length, 2);
   assert.equal(interaction.calls.at(-1)?.method, 'reply');
-  assert.match(interaction.calls.at(-1)?.payload?.content ?? '', /request failed/);
+  assert.match(interaction.calls.at(-1)?.payload?.content ?? '', /requête DeepSeek a échoué/);
   assert.equal(interaction.calls.at(-1)?.payload?.flags, memoOn);
 });
 
-test('/q tolerates a failure of the error reply itself', async () => {
+test('/q tolère l\'échec de la réponse d\'erreur elle-même', async () => {
   const memory = createFakeMemory({ failures: { getHistory: 1 } });
   const { bot, logger } = setup({ memory });
 
@@ -492,10 +492,10 @@ test('/q tolerates a failure of the error reply itself', async () => {
 
   await assert.doesNotReject(bot.handleInteraction(interaction));
   assert.equal(interaction.calls.filter((call) => call.method === 'editReply').length, 1);
-  assert.match(logger.messages('error')[0], /Failed to handle \/q/);
+  assert.match(logger.messages('error')[0], /Échec du traitement de \/q/);
 });
 
-test('/q splits long model answers into an edit and follow-ups', async () => {
+test('/q découpe les longues réponses en une édition et des suivis', async () => {
   const { bot } = setup({ ask: async () => LONG_REPLY });
 
   const interaction = createFakeInteraction({ guildId: 'guild-1', channelId: 'channel-1' });
@@ -510,7 +510,7 @@ test('/q splits long model answers into an edit and follow-ups', async () => {
   assert.equal(interaction.calls[2].payload?.content, 'b'.repeat(10));
 });
 
-test('/q tolerates a channel without typing support', async () => {
+test('/q tolère un canal sans indicateur de frappe', async () => {
   const { bot } = setup();
 
   const interaction = createFakeInteraction({ channelId: 'channel-1', channel: null });
@@ -519,18 +519,18 @@ test('/q tolerates a channel without typing support', async () => {
   assert.equal(interaction.calls.at(-1)?.payload?.content, 'reply');
 });
 
-test('a failing appendTurn is logged but the answer is still sent', async () => {
+test('un appendTurn en échec est journalisé mais la réponse part quand même', async () => {
   const memory = createFakeMemory({ failures: { appendTurn: 1 } });
   const { bot, logger } = setup({ memory });
 
   const interaction = createFakeInteraction({ guildId: 'guild-1', channelId: 'channel-1' });
   await bot.handleInteraction(interaction);
 
-  assert.match(logger.messages('warn')[0], /Could not save the conversation turn/);
+  assert.match(logger.messages('warn')[0], /Impossible d'enregistrer le tour de conversation/);
   assert.equal(interaction.calls.at(-1)?.payload?.content, 'reply');
 });
 
-test('/q responds with a memory error when the interaction is already deferred', async () => {
+test('/q répond avec une erreur de mémoire quand l\'interaction est déjà différée', async () => {
   const memory = createFakeMemory({ failures: { getHistory: 1 } });
   const { bot } = setup({ memory });
 
@@ -539,10 +539,10 @@ test('/q responds with a memory error when the interaction is already deferred',
 
   assert.equal(interaction.deferred, true);
   assert.equal(interaction.calls.at(-1)?.method, 'editReply');
-  assert.match(interaction.calls.at(-1)?.payload?.content ?? '', /memory is temporarily unavailable/);
+  assert.match(interaction.calls.at(-1)?.payload?.content ?? '', /mémoire de conversation est momentanément indisponible/);
 });
 
-test('messages from bots and system messages are ignored', async () => {
+test('les messages des bots et les messages système sont ignorés', async () => {
   const { bot, memory } = setup();
 
   await bot.handleMessage(
@@ -553,7 +553,7 @@ test('messages from bots and system messages are ignored', async () => {
   assert.equal(memory.calls.length, 0);
 });
 
-test('guild messages without a mention are ignored', async () => {
+test('les messages de guilde sans mention sont ignorés', async () => {
   const { bot, memory } = setup();
 
   await bot.handleMessage(createFakeMessage({ mentionsBot: false }));
@@ -561,7 +561,7 @@ test('guild messages without a mention are ignored', async () => {
   assert.equal(memory.calls.length, 0);
 });
 
-test('a mentioned guild message answers with shared channel memory', async () => {
+test('un message de guilde mentionné répond avec la mémoire partagée du canal', async () => {
   const memory = createFakeMemory({
     histories: { 'channel-1': [{ role: 'user', content: 'earlier' }] },
   });
@@ -599,7 +599,7 @@ test('a mentioned guild message answers with shared channel memory', async () =>
   );
 });
 
-test('a DM message answers without reading or storing any memory', async () => {
+test('un message en MP répond sans lire ni stocker de mémoire', async () => {
   const memory = createFakeMemory();
   const asks: Array<{ history: Turn[]; prompt: string }> = [];
   const { bot } = setup({
@@ -624,17 +624,17 @@ test('a DM message answers without reading or storing any memory', async () => {
   assert.equal(message.calls.at(-1)?.payload?.content, 'private answer');
 });
 
-test('an empty mention asks for a question', async () => {
+test('une mention vide demande une question', async () => {
   const { bot, memory } = setup();
   const message = createFakeMessage({ content: `<@${BOT_USER_ID}>` });
 
   await bot.handleMessage(message);
 
-  assert.equal(message.calls[0].payload?.content, 'Hi! Mention me with a question, or use `/q`.');
+  assert.equal(message.calls[0].payload?.content, 'Salut ! Mentionne-moi avec une question, ou utilise `/q`.');
   assert.equal(memory.calls.length, 0);
 });
 
-test('an oversized message is refused before calling the model', async () => {
+test('un message trop long est refusé avant l\'appel au modèle', async () => {
   const { bot, memory } = setup();
   const message = createFakeMessage({
     content: `<@${BOT_USER_ID}> ${'x'.repeat(51)}`,
@@ -642,11 +642,11 @@ test('an oversized message is refused before calling the model', async () => {
 
   await bot.handleMessage(message);
 
-  assert.match(message.calls[0].payload?.content ?? '', /under 50 characters/);
+  assert.match(message.calls[0].payload?.content ?? '', /sous 50 caractères/);
   assert.equal(memory.calls.length, 0);
 });
 
-test('a second mentioned message waits while the first is in flight', async () => {
+test('un second message mentionné attend pendant que le premier est en vol', async () => {
   const gate = await deferred();
   const { bot } = setup({
     ask: async () => {
@@ -664,14 +664,14 @@ test('a second mentioned message waits while the first is in flight', async () =
 
   assert.match(
     second.calls.find((call) => call.method === 'reply')?.payload?.content ?? '',
-    /still working on the previous question/,
+    /Je travaille encore sur la question précédente/,
   );
 
   gate.resolve();
   await firstRun;
 });
 
-test('a message answer longer than the limit is split across replies', async () => {
+test('une réponse plus longue que la limite est découpée en plusieurs réponses', async () => {
   const { bot } = setup({ ask: async () => LONG_REPLY });
   const message = createFakeMessage();
 
@@ -683,7 +683,7 @@ test('a message answer longer than the limit is split across replies', async () 
   assert.equal(sends[1].payload?.content, 'b'.repeat(10));
 });
 
-test('message errors are reported through the error description', async () => {
+test('les erreurs de message sont rapportées via la description d\'erreur', async () => {
   const { bot } = setup({
     ask: async () => {
       throw Object.assign(new Error('expired key'), { status: 401 });
@@ -693,20 +693,20 @@ test('message errors are reported through the error description', async () => {
 
   await bot.handleMessage(message);
 
-  assert.match(message.calls.at(-1)?.payload?.content ?? '', /rejected the API key/);
+  assert.match(message.calls.at(-1)?.payload?.content ?? '', /a rejeté la clé API/);
 });
 
-test('a memory read failure in a message is reported as such', async () => {
+test('un échec de lecture mémoire dans un message est rapporté comme tel', async () => {
   const memory = createFakeMemory({ failures: { getHistory: 1 } });
   const { bot } = setup({ memory });
   const message = createFakeMessage();
 
   await bot.handleMessage(message);
 
-  assert.match(message.calls.at(-1)?.payload?.content ?? '', /memory is temporarily unavailable/);
+  assert.match(message.calls.at(-1)?.payload?.content ?? '', /mémoire de conversation est momentanément indisponible/);
 });
 
-test('a failing message reply is logged and swallowed', async () => {
+test('une réponse de message en échec est journalisée et avalée', async () => {
   const { bot, logger } = setup({
     ask: async () => {
       throw new Error('model down');
@@ -716,10 +716,10 @@ test('a failing message reply is logged and swallowed', async () => {
 
   await assert.doesNotReject(bot.handleMessage(message));
 
-  assert.match(logger.messages('error')[0], /Failed to handle message: model down/);
+  assert.match(logger.messages('error')[0], /Échec du traitement du message : model down/);
 });
 
-test('a failing typing indicator does not prevent the answer', async () => {
+test('un indicateur de frappe en échec n\'empêche pas la réponse', async () => {
   const { bot } = setup();
   const message = createFakeMessage({ failures: { typing: 1 } });
 
@@ -728,7 +728,7 @@ test('a failing typing indicator does not prevent the answer', async () => {
   assert.equal(message.calls.at(-1)?.payload?.content, 'reply');
 });
 
-test('a DM message still works when the channel cannot send typing indicators', async () => {
+test('un message en MP fonctionne quand le canal ne peut pas afficher l\'indicateur', async () => {
   const { bot } = setup();
   const message = createFakeMessage({
     content: 'hello',
@@ -743,7 +743,7 @@ test('a DM message still works when the channel cannot send typing indicators', 
   assert.equal(message.calls.at(-1)?.payload?.content, 'reply');
 });
 
-test('messages work without a cached bot user', async () => {
+test('les messages fonctionnent sans utilisateur de bot en cache', async () => {
   const memory = createFakeMemory();
   const logger = createLogger();
   const client = Object.assign(new EventEmitter(), { user: null });
@@ -761,13 +761,13 @@ test('messages work without a cached bot user', async () => {
   assert.equal(dm.calls.at(-1)?.payload?.content, 'reply');
 });
 
-test('Discord client errors are logged', () => {
+test('les erreurs du client Discord sont journalisées', () => {
   const client = createFakeClient();
   const logger = createLogger();
   new Bot({ client, memory: createFakeMemory(), settings, logger });
 
   client.emit(Events.Error, new Error('ws closed'));
 
-  assert.match(logger.messages('error')[0], /Discord client error: ws closed/);
+  assert.match(logger.messages('error')[0], /Erreur du client Discord : ws closed/);
 });
 

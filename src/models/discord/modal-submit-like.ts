@@ -1,7 +1,11 @@
 import type { InteractionLike } from './interaction-like.ts';
 import type { ReplyPayload } from './reply-payload.ts';
 
-/** The slice of a modal submission the bot reads. */
+/**
+ * La tranche d'une soumission de modal que le bot lit.
+ *
+ * @interface
+ */
 export interface ModalSubmitLike {
   customId: string;
   user: { id: string; username: string };

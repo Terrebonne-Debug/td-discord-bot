@@ -1,6 +1,11 @@
 import type { LogLevel } from '../config/log-level.ts';
 
-/** The configuration values the logging module reads; Config satisfies it. */
+/**
+ * Les valeurs de configuration que la journalisation lit ; Config les
+ * satisfait.
+ *
+ * @interface
+ */
 export interface LoggingConfig {
   logLevel: LogLevel;
   logDir: string;

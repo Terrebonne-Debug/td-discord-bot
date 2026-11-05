@@ -9,16 +9,38 @@ import { ArchiveSweeper } from './archive-sweeper.ts';
 
 const LEVEL_ORDER: Record<LogLevel, number> = { error: 0, warn: 1, info: 2, debug: 3 };
 
+/**
+ * Indique si un niveau passe le seuil configuré.
+ *
+ * @function
+ * @param {LogLevel} level - Le niveau du message.
+ * @param {LogLevel} threshold - Le seuil configuré.
+ * @returns {boolean} Vrai si le niveau est autorisé.
+ */
 function isEnabled(level: LogLevel, threshold: LogLevel): boolean {
   return LEVEL_ORDER[level] <= LEVEL_ORDER[threshold];
 }
 
+/**
+ * Formate un message console avec ses champs structurés.
+ *
+ * @function
+ * @param {string} message - Le message.
+ * @param {Record<string, unknown>} [fields] - Les champs structurés.
+ * @returns {string} Le message formaté.
+ */
 function formatConsoleMessage(message: string, fields?: Record<string, unknown>): string {
   if (!fields || Object.keys(fields).length === 0) return message;
   return `${message} ${JSON.stringify(fields)}`;
 }
 
-/** Adapts a winston logger to the BotLogger interface. */
+/**
+ * Adapte un journal winston à l'interface BotLogger.
+ *
+ * @function
+ * @param {winston.Logger} winstonLogger - Le journal winston brut.
+ * @returns {BotLogger} Le journal adapté.
+ */
 function toBotLogger(winstonLogger: winston.Logger): BotLogger {
   const write =
     (level: LogLevel) =>
@@ -45,19 +67,32 @@ const consoleFormat = winston.format.printf(({ level, message, timestamp, ...fie
 });
 
 /**
- * Builds the bot's loggers: a console-only fallback without files, and the
- * production logger (readable console in a terminal, JSON otherwise, plus a
- * rotating JSON file whose finished rotations are gzip-archived with the
- * configured retention).
+ * Construit les journaux du bot : un repli console sans fichiers, et le
+ * journal de production (console lisible dans un terminal, JSON sinon, plus
+ * un fichier JSON rotatif dont les rotations terminées sont archivées en
+ * gzip avec la rétention configurée).
+ *
+ * @class
  */
 export class LoggerFactory {
+  /** @type {LoggingConfig} La configuration de journalisation. */
   #appConfig: LoggingConfig;
 
+  /**
+   * @constructor
+   * @param {LoggingConfig} [appConfig=config] - La configuration de journalisation.
+   */
   constructor(appConfig: LoggingConfig = config) {
     this.#appConfig = appConfig;
   }
 
-  /** Console-only logger, default of every path without an injected logger. */
+  /**
+   * Journal console sans fichiers, défaut des chemins sans journal injecté.
+   *
+   * @method
+   * @param {LogLevel} [threshold] - Le seuil de niveau (défaut : la config).
+   * @returns {BotLogger} Le journal console.
+   */
   consoleLogger(threshold: LogLevel = this.#appConfig.logLevel): BotLogger {
     const write =
       (level: LogLevel, method: 'debug' | 'info' | 'warn' | 'error') =>
@@ -78,8 +113,11 @@ export class LoggerFactory {
   }
 
   /**
-   * Options of the rotating file transport, exposed as a public method so
-   * the mapping from configuration can be unit-tested.
+   * Options du transport de fichier rotatif, exposées comme méthode publique
+   * pour que la correspondance depuis la configuration soit testable.
+   *
+   * @method
+   * @returns {{ filename: string; datePattern: string; maxSize: string }} Les options du transport.
    */
   fileTransportOptions(): {
     filename: string;
@@ -93,6 +131,13 @@ export class LoggerFactory {
     };
   }
 
+  /**
+   * Le journal de production : console plus fichier rotatif archivé.
+   *
+   * @method
+   * @param {{ isTTY?: boolean }} [stdout=process.stdout] - La sortie standard.
+   * @returns {BotLogger} Le journal de production.
+   */
   rootLogger(stdout: { isTTY?: boolean } = process.stdout): BotLogger {
     const consoleTransport = new winston.transports.Console({
       format: stdout.isTTY

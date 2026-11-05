@@ -2,8 +2,10 @@ import type { MemoryMode } from './memory-mode.ts';
 import type { Turn } from './turn.ts';
 
 /**
- * The conversation-memory API the rest of the bot depends on. MemoryStore
- * implements it, and tests inject plain objects that do too.
+ * L'API de mémoire de conversation dont le reste du bot dépend. MemoryStore
+ * l'implémente, et les tests injectent des objets simples qui le font aussi.
+ *
+ * @interface
  */
 export interface ConversationMemory {
   readonly mode: MemoryMode;

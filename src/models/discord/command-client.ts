@@ -1,4 +1,8 @@
-/** The slice of the Discord client registerCommands needs. */
+/**
+ * La tranche du client Discord dont Bot.registerCommands a besoin.
+ *
+ * @interface
+ */
 export interface CommandClient {
   guilds: {
     fetch(

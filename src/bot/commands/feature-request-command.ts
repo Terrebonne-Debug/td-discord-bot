@@ -7,15 +7,29 @@ import type { ModalSubmitLike } from '../../models/discord/modal-submit-like.ts'
 import type { BotSettings } from '../../models/bot/bot-settings.ts';
 import type { BotLogger } from '../../models/logging/bot-logger.ts';
 
-
-/** `/feature-request` : ouvre le formulaire titre + description, puis crée l'issue. */
+/**
+ * `/feature-request` : ouvre le formulaire titre + description, puis crée
+ * l'issue GitHub.
+ *
+ * @class
+ */
 export class FeatureRequestCommand implements Command {
+  /** @type {readonly string[]} Le nom de la commande. */
   readonly names = ['feature-request'] as const;
 
+  /** @type {BotSettings} Les réglages du bot (jeton et dépôt GitHub). */
   #settings: BotSettings;
+  /** @type {(title: string, body: string) => Promise<string>} Le créateur d'issue. */
   #createIssue: (title: string, body: string) => Promise<string>;
+  /** @type {BotLogger} Le journal du bot. */
   #logger: BotLogger;
 
+  /**
+   * @constructor
+   * @param {BotSettings} settings - Les réglages du bot.
+   * @param {(title: string, body: string) => Promise<string>} createIssue - Le créateur d'issue.
+   * @param {BotLogger} logger - Le journal du bot.
+   */
   constructor({
     settings,
     createIssue,
@@ -30,6 +44,13 @@ export class FeatureRequestCommand implements Command {
     this.#logger = logger;
   }
 
+  /**
+   * Vérifie la configuration puis ouvre le formulaire.
+   *
+   * @method
+   * @param {InteractionLike} interaction - L'interaction slash.
+   * @returns {Promise<void>}
+   */
   async handle(interaction: InteractionLike): Promise<void> {
     if (!this.#settings.githubToken) {
       await interaction.reply({
@@ -43,7 +64,13 @@ export class FeatureRequestCommand implements Command {
     await interaction.showModal(Commands.featureRequestModal());
   }
 
-  /** Reçoit le formulaire rempli et crée l'issue GitHub ; true si pris en charge. */
+  /**
+   * Reçoit le formulaire rempli et crée l'issue GitHub.
+   *
+   * @method
+   * @param {ModalSubmitLike} modal - La soumission de modal.
+   * @returns {Promise<boolean>} Vrai si la soumission a été prise en charge.
+   */
   async handleSubmit(modal: ModalSubmitLike): Promise<boolean> {
     if (modal.customId !== 'feature-request') return false;
 
@@ -70,10 +97,12 @@ export class FeatureRequestCommand implements Command {
         allowedMentions: { parse: [] },
       });
     } catch (error) {
-      this.#logger.error(`Could not create the feature request issue: ${Errors.messageOf(error)}`);
+      this.#logger.error(
+        `Impossible de créer l'issue de demande : ${Errors.messageOf(error)}`,
+      );
       await modal
         .editReply({
-          content: 'Impossible de créer la demande pour le moment. Réessayez plus tard.',
+          content: 'Impossible de créer la demande pour le moment. Réessaie plus tard.',
         })
         .catch(() => {});
     }
@@ -81,4 +110,3 @@ export class FeatureRequestCommand implements Command {
     return true;
   }
 }
-

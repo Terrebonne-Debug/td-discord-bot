@@ -32,7 +32,7 @@ function dispatcher(commands: Command[]) {
   return { dispatcher: new CommandDispatcher({ commands, logger }), logger };
 }
 
-test('CommandDispatcher routes chat inputs to the command by name, aliases included', async () => {
+test('CommandDispatcher route les entrées de discussion par nom, alias compris', async () => {
   const version = fakeCommand(['version']);
   const help = fakeCommand(['aide', 'help']);
   const { dispatcher: d } = dispatcher([version, help]);
@@ -44,7 +44,7 @@ test('CommandDispatcher routes chat inputs to the command by name, aliases inclu
   assert.deepEqual(help.handled, ['help']);
 });
 
-test('CommandDispatcher ignores unknown commands and non-chat-input interactions', async () => {
+test('CommandDispatcher ignore les commandes inconnues et les interactions non-chat', async () => {
   const q = fakeCommand(['q']);
   const { dispatcher: d } = dispatcher([q]);
 
@@ -54,7 +54,7 @@ test('CommandDispatcher ignores unknown commands and non-chat-input interactions
   assert.deepEqual(q.handled, []);
 });
 
-test('CommandDispatcher routes modal submissions and stops at the first taker', async () => {
+test('CommandDispatcher route les soumissions de modal et s\'arrête au premier preneur', async () => {
   const withoutSubmit = fakeCommand(['a']);
   const second = fakeCommand(['b'], {
     async handleSubmit(modal) {
@@ -70,7 +70,7 @@ test('CommandDispatcher routes modal submissions and stops at the first taker', 
   assert.deepEqual(second.submitted, ['feature-request']);
 });
 
-test('CommandDispatcher ignores modals no command accepts', async () => {
+test('CommandDispatcher ignore les modals qu\'aucune commande n\'accepte', async () => {
   const first = fakeCommand(['a'], {
     async handleSubmit(modal) {
       first.submitted.push(modal.customId);
@@ -85,24 +85,24 @@ test('CommandDispatcher ignores modals no command accepts', async () => {
   assert.deepEqual(logger.messages('error'), []);
 });
 
-test('CommandDispatcher logs handler failures without crashing', async () => {
+test('CommandDispatcher journalise les échecs de gestionnaire sans planter', async () => {
   const broken = fakeCommand(['version'], {
     /** Un rejet non-Error couvre aussi la branche String(error) du journal. */
     async handle() {
-      throw 'reply failed';
+      throw 'réponse a échoué';
     },
   });
   const { dispatcher: d, logger } = dispatcher([broken]);
 
   await assert.doesNotReject(d.dispatch(createFakeInteraction({ commandName: 'version' })));
 
-  assert.match(logger.messages('error')[0], /Failed to handle \/version: reply failed/);
+  assert.match(logger.messages('error')[0], /Échec du traitement de \/version : réponse a échoué/);
 });
 
-test('CommandDispatcher logs submit failures without crashing', async () => {
+test('CommandDispatcher journalise les échecs de soumission sans planter', async () => {
   const broken = fakeCommand(['a'], {
     async handleSubmit() {
-      throw new Error('field failed');
+      throw new Error('champ a échoué');
     },
   });
   const { dispatcher: d, logger } = dispatcher([broken]);
@@ -111,7 +111,7 @@ test('CommandDispatcher logs submit failures without crashing', async () => {
 
   assert.match(
     logger.messages('error')[0],
-    /Failed to handle feature-request submit: field failed/,
+    /Échec du traitement de la soumission feature-request : champ a échoué/,
   );
 });
 

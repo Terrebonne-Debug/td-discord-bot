@@ -56,7 +56,7 @@ function scriptedStrategy({
       if (this.failReportError) throw new Error('reportError failed');
       this.errorReported.push(error instanceof Error ? error.message : String(error));
     },
-    errorLabel: () => 'Failed to handle /q',
+    errorLabel: () => 'Échec du traitement de /q',
     errorFields: () => ({ key: memoryKey }),
   };
 }
@@ -73,7 +73,7 @@ function setup({
   return { service: new ConversationService({ memory, ask, logger }), memory, logger };
 }
 
-test('ConversationService does nothing when prepare returns null', async () => {
+test('ConversationService ne fait rien quand prepare renvoie null', async () => {
   const strategy = scriptedStrategy({ prompt: null });
   const { service, memory } = setup();
 
@@ -84,7 +84,7 @@ test('ConversationService does nothing when prepare returns null', async () => {
   assert.equal(memory.calls.length, 0);
 });
 
-test('ConversationService runs the full flow and stops the work indicator', async () => {
+test('ConversationService déroule le flux complet et arrête l\'indicateur', async () => {
   const asks: Array<{ history: Turn[]; prompt: string }> = [];
   const strategy = scriptedStrategy();
   const { service, memory, logger } = setup({
@@ -103,7 +103,7 @@ test('ConversationService runs the full flow and stops the work indicator', asyn
   assert.deepEqual(logger.messages('error'), []);
 });
 
-test('ConversationService reports a busy conversation without asking the model', async () => {
+test('ConversationService rapporte une conversation occupée sans interroger le modèle', async () => {
   const gate = new Promise<void>((resolve) => {
     setTimeout(resolve, 30);
   });
@@ -127,18 +127,18 @@ test('ConversationService reports a busy conversation without asking the model',
   assert.deepEqual(asks, ['appelé']);
 });
 
-test('ConversationService reports memory failures and logs them with the strategy identity', async () => {
+test('ConversationService rapporte les échecs de mémoire et les journalise avec l\'identité de la stratégie', async () => {
   const strategy = scriptedStrategy();
   const memory = createFakeMemory({ failures: { getHistory: 1 } });
   const { service, logger } = setup({ memory });
 
   await service.handle(strategy);
 
-  assert.match(strategy.errorReported[0], /Conversation memory is unavailable/);
-  assert.match(logger.messages('error')[0], /Failed to handle \/q/);
+  assert.match(strategy.errorReported[0], /La mémoire de conversation est indisponible/);
+  assert.match(logger.messages('error')[0], /Échec du traitement de \/q/);
 });
 
-test('ConversationService tolerates a failing error report', async () => {
+test('ConversationService tolère un rapport d\'erreur en échec', async () => {
   const strategy = scriptedStrategy({ failReportError: true });
   const memory = createFakeMemory({ failures: { getHistory: 1 } });
   const { service } = setup({ memory });
@@ -146,13 +146,13 @@ test('ConversationService tolerates a failing error report', async () => {
   await assert.doesNotReject(service.handle(strategy));
 });
 
-test('ConversationService warns when the turn cannot be saved but still answers', async () => {
+test('ConversationService avertit quand le tour ne peut pas être enregistré mais répond quand même', async () => {
   const strategy = scriptedStrategy();
   const memory = createFakeMemory({ failures: { appendTurn: 1 } });
   const { service, logger } = setup({ memory });
 
   await service.handle(strategy);
 
-  assert.match(logger.messages('warn')[0], /Could not save the conversation turn/);
+  assert.match(logger.messages('warn')[0], /Impossible d'enregistrer le tour de conversation/);
   assert.deepEqual(strategy.calls.at(-1), 'sendReply:la réponse');
 });

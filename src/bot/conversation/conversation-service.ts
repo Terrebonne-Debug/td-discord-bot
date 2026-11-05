@@ -5,18 +5,30 @@ import type { ConversationMemory } from '../../models/memory/conversation-memory
 import type { Turn } from '../../models/memory/turn.ts';
 import type { ConversationStrategy } from './conversation-strategy.ts';
 
-
 /**
- * The conversation algorithm shared by /q and message mentions, parameterized
- * by a ConversationStrategy: validate, lock the conversation, load history,
- * ask the model, store the turn, deliver the reply.
+ * L'algorithme de conversation partagé par `/q` et les mentions de message,
+ * paramétré par une ConversationStrategy : valider, verrouiller la
+ * conversation, charger l'historique, interroger le modèle, enregistrer le
+ * tour, livrer la réponse.
+ *
+ * @class
  */
 export class ConversationService {
+  /** @type {ConversationMemory} La mémoire des canaux. */
   #memory: ConversationMemory;
+  /** @type {(history: Turn[], prompt: string) => Promise<string>} Le modèle. */
   #ask: (history: Turn[], prompt: string) => Promise<string>;
+  /** @type {BotLogger} Le journal du bot. */
   #logger: BotLogger;
+  /** @type {Set<string>} Les conversations en cours de traitement. */
   #busyConversations = new Set<string>();
 
+  /**
+   * @constructor
+   * @param {ConversationMemory} memory - La mémoire des canaux.
+   * @param {(history: Turn[], prompt: string) => Promise<string>} ask - Le modèle.
+   * @param {BotLogger} logger - Le journal du bot.
+   */
   constructor({
     memory,
     ask,
@@ -31,6 +43,13 @@ export class ConversationService {
     this.#logger = logger;
   }
 
+  /**
+   * Déroule l'algorithme complet pour une stratégie donnée.
+   *
+   * @method
+   * @param {ConversationStrategy} strategy - La source de la conversation.
+   * @returns {Promise<void>}
+   */
   async handle(strategy: ConversationStrategy): Promise<void> {
     try {
       const prompt = await strategy.prepare();
@@ -45,7 +64,7 @@ export class ConversationService {
       }
     } catch (error) {
       this.#logger.error(
-        `${strategy.errorLabel()}: ${Errors.messageOf(error)}`,
+        `${strategy.errorLabel()} : ${Errors.messageOf(error)}`,
         strategy.errorFields(),
       );
       await strategy.reportError(error).catch(() => {});
@@ -53,10 +72,15 @@ export class ConversationService {
   }
 
   /**
-   * Keep one in-flight request per conversation and keep the lock until the
-   * reply has been sent, so two answers cannot interleave in the same
-   * conversation. The memory key comes from the strategy, never from user
-   * input.
+   * Garde une seule requête en vol par conversation et conserve le verrou
+   * jusqu'à l'envoi de la réponse, pour que deux réponses ne s'entrelacent
+   * pas. La clé de mémoire vient de la stratégie, jamais de l'entrée
+   * utilisateur.
+   *
+   * @method
+   * @param {ConversationStrategy} strategy - La source de la conversation.
+   * @param {string} prompt - Le prompt validé.
+   * @returns {Promise<boolean>} Faux quand la conversation était occupée.
    */
   async #respond(strategy: ConversationStrategy, prompt: string): Promise<boolean> {
     const lockKey = strategy.lockKey();
@@ -91,7 +115,7 @@ export class ConversationService {
         try {
           await this.#memory.appendTurn(memoryKey, prompt, reply);
         } catch (error) {
-          log.warn(`Could not save the conversation turn: ${Errors.messageOf(error)}`);
+          log.warn(`Impossible d'enregistrer le tour de conversation : ${Errors.messageOf(error)}`);
         }
       }
 

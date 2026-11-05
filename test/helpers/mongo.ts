@@ -4,9 +4,15 @@ import type { Collection, Db } from 'mongodb';
 export const TEST_MONGODB_URI = process.env.MONGODB_TEST_URI ?? 'mongodb://127.0.0.1:27017';
 
 /**
- * The bot's collections are keyed by string ids (channel or user id). The
- * driver's default Document type expects ObjectId, so tests use this typed
- * accessor instead of db.collection() directly.
+ * Les collections du bot sont indexées par des identifiants en chaînes
+ * (identifiant de canal ou d'utilisateur). Le type Document par défaut du
+ * pilote attend un ObjectId : les tests utilisent donc cet accesseur typé
+ * au lieu de db.collection() directement.
+ *
+ * @function
+ * @param {Db} db - La base de données.
+ * @param {string} name - Le nom de la collection.
+ * @returns {Collection<{ _id: string; [key: string]: any }>} La collection typée.
  */
 export function collection(db: Db, name: string): Collection<{ _id: string; [key: string]: any }> {
   return db.collection(name);
@@ -20,8 +26,12 @@ export function uniqueDbName(prefix = 'td-bot-test'): string {
 }
 
 /**
- * Connect to the test MongoDB, expose a raw client and an isolated database,
- * then drop that database and disconnect on the way out.
+ * Connecte au MongoDB de test, expose un client brut et une base isolée,
+ * puis supprime cette base et se déconnecte en sortant.
+ *
+ * @function
+ * @param {(context: { client: MongoClient; db: Db; dbName: string }) => Promise<unknown>} fn - Le test à exécuter.
+ * @returns {Promise<unknown>} Le résultat du test.
  */
 export async function withMongo(
   fn: (context: { client: MongoClient; db: Db; dbName: string }) => Promise<unknown>,

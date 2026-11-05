@@ -21,9 +21,12 @@ async function gzipFile(filePath: string): Promise<void> {
 }
 
 /**
- * Compresses the log files whose rotation is finished and deletes archives
- * older than the retention. The active file of the day is never touched.
- * The sweep never rejects: an unreadable file is left for the next pass.
+ * Compresse les fichiers journaux dont la rotation est terminée et supprime
+ * les archives plus vieilles que la rétention. Le fichier actif du jour
+ * n'est jamais touché. Le balayage n'échoue jamais : un fichier illisible
+ * est laissé pour le prochain passage.
+ *
+ * @class
  */
 export class ArchiveSweeper {
   /** Nom du fichier journal actif pour une date donnée (yyyy-MM-dd). */
@@ -77,8 +80,11 @@ export class ArchiveSweeper {
   }
 
   /**
-   * Sweeps immediately, then daily, without ever blocking the bot's
-   * shutdown. The sweep never rejects, so no handler is needed here.
+   * Balaye immédiatement puis chaque jour, sans jamais bloquer l'arrêt du
+   * bot. Le balayage n'échoue jamais, aucun gestionnaire n'est requis ici.
+   *
+   * @method
+   * @returns {void}
    */
   start(): void {
     const run = () => {

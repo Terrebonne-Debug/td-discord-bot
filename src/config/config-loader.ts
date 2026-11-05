@@ -11,10 +11,10 @@ const LOG_LEVELS = new Set<string>(['debug', 'info', 'warn', 'error']);
 function required(env: NodeJS.ProcessEnv, name: string): string {
   const value = env[name]?.trim();
   if (!value) {
-    throw new Error(`Missing required environment variable: ${name}. See .env.example.`);
+    throw new Error(`Variable d'environnement requise manquante : ${name}. Voir .env.example.`);
   }
   if (value.startsWith('your_')) {
-    throw new Error(`${name} still has its placeholder value. Set a real value in .env.`);
+    throw new Error(`${name} a encore sa valeur d'exemple. Définis une vraie valeur dans .env.`);
   }
   return value;
 }
@@ -28,7 +28,7 @@ function positiveInt(env: NodeJS.ProcessEnv, name: string, fallback: number): nu
   const raw = optional(env, name, String(fallback));
   const value = Number(raw);
   if (!Number.isInteger(value) || value <= 0) {
-    throw new Error(`${name} must be a positive integer (received: ${raw}).`);
+    throw new Error(`${name} doit être un entier positif (reçu : ${raw}).`);
   }
   return value;
 }
@@ -39,7 +39,7 @@ function optionalNumber(env: NodeJS.ProcessEnv, name: string, min: number, max: 
 
   const value = Number(raw);
   if (!Number.isFinite(value) || value < min || value > max) {
-    throw new Error(`${name} must be a number from ${min} to ${max} (received: ${raw}).`);
+    throw new Error(`${name} doit être un nombre de ${min} à ${max} (reçu : ${raw}).`);
   }
   return value;
 }
@@ -50,7 +50,7 @@ function optionalPositiveInt(env: NodeJS.ProcessEnv, name: string): number | nul
 
   const value = Number(raw);
   if (!Number.isInteger(value) || value <= 0) {
-    throw new Error(`${name} must be a positive integer (received: ${raw}).`);
+    throw new Error(`${name} doit être un entier positif (reçu : ${raw}).`);
   }
   return value;
 }
@@ -59,19 +59,30 @@ function optionalBoolean(env: NodeJS.ProcessEnv, name: string, fallback: boolean
   const raw = optional(env, name, String(fallback)).toLowerCase();
   if (raw === 'true') return true;
   if (raw === 'false') return false;
-  throw new Error(`${name} must be "true" or "false" (received: ${raw}).`);
+  throw new Error(`${name} doit valoir « true » ou « false » (reçu : ${raw}).`);
 }
 
 /**
- * Builds the frozen configuration from an environment-like object. Pure, so
- * every validation branch can be tested without reloading the module.
+ * Construit la configuration figée depuis un objet d'environnement. Pure,
+ * pour que chaque branche de validation soit testable sans recharger le
+ * module.
+ *
+ * @class
  */
 export class ConfigLoader {
+  /**
+   * Analyse et valide l'environnement.
+   *
+   * @method
+   * @param {NodeJS.ProcessEnv} [env=process.env] - L'environnement à lire.
+   * @returns {Readonly<Config>} La configuration figée.
+   * @throws Quand une valeur requise manque ou est invalide.
+   */
   parse(env: NodeJS.ProcessEnv = process.env): Readonly<Config> {
     const thinkingRaw = optional(env, 'DEEPSEEK_THINKING', 'enabled').toLowerCase();
     if (!THINKING_MODES.has(thinkingRaw)) {
       throw new Error(
-        `DEEPSEEK_THINKING must be "enabled" or "disabled" (received: ${thinkingRaw}).`,
+        `DEEPSEEK_THINKING doit valoir « enabled » ou « disabled » (reçu : ${thinkingRaw}).`,
       );
     }
     const thinking = thinkingRaw as ThinkingMode;
@@ -79,14 +90,14 @@ export class ConfigLoader {
     const effortRaw = optional(env, 'DEEPSEEK_EFFORT', 'max').toLowerCase();
     if (!EFFORT_LEVELS.has(effortRaw)) {
       throw new Error(
-        `DEEPSEEK_EFFORT must be one of ${[...EFFORT_LEVELS].join(', ')} (received: ${effortRaw}).`,
+        `DEEPSEEK_EFFORT doit être l'un de ${[...EFFORT_LEVELS].join(', ')} (reçu : ${effortRaw}).`,
       );
     }
     const effort = effortRaw as EffortLevel;
 
     const logLevelRaw = optional(env, 'LOG_LEVEL', 'info').toLowerCase();
     if (!LOG_LEVELS.has(logLevelRaw)) {
-      throw new Error(`LOG_LEVEL must be one of ${[...LOG_LEVELS].join(', ')} (received: ${logLevelRaw}).`);
+      throw new Error(`LOG_LEVEL doit être l'un de ${[...LOG_LEVELS].join(', ')} (reçu : ${logLevelRaw}).`);
     }
     const logLevel = logLevelRaw as LogLevel;
 
@@ -109,24 +120,24 @@ export class ConfigLoader {
       systemPrompt: optional(
         env,
         'SYSTEM_PROMPT',
-        'You are a helpful Discord bot powered by DeepSeek. Answer clearly and concisely, using Markdown that renders well in Discord.',
+        'Tu es un bot Discord utile propulsé par DeepSeek. Réponds clairement et de façon concise, avec du Markdown qui s\'affiche bien dans Discord.',
       ),
       maxHistoryTurns: positiveInt(env, 'MAX_HISTORY_TURNS', 10),
       maxPromptChars: positiveInt(env, 'MAX_PROMPT_CHARS', 4000),
 
       /**
-       * Conversation memory. Without a reachable MongoDB the bot falls back to
-       * in-RAM memory (lost on restart).
+       * Mémoire de conversation. Sans MongoDB joignable, le bot replie sur
+       * une mémoire en RAM (perdue au redémarrage).
        */
       mongodbUri: optional(env, 'MONGODB_URI', '') || null,
       mongodbDb: optional(env, 'MONGODB_DB', 'td-discord-bot'),
       mongodbTimeoutMs: positiveInt(env, 'MONGODB_TIMEOUT_MS', 5000),
       /**
-       * Channel history always expires: 30 days after its last update by
-       * default, MEMORY_TTL_DAYS overrides.
+       * L'historique des canaux expire toujours : 30 jours après sa dernière
+       * mise à jour par défaut, MEMORY_TTL_DAYS remplace.
        */
       memoryTtlDays: optionalPositiveInt(env, 'MEMORY_TTL_DAYS') ?? 30,
-      /** Validated by MemoryCipher.parseKey at startup. */
+      /** Validée par MemoryCipher.parseKey au démarrage. */
       memoryEncryptionKey: optional(env, 'MEMORY_ENCRYPTION_KEY', '') || null,
 
       logLevel,
@@ -136,8 +147,8 @@ export class ConfigLoader {
       logRetentionDays: positiveInt(env, 'LOG_RETENTION_DAYS', 14),
 
       /**
-       * GitHub issue creation (/feature-request). Without a token the command
-       * answers that it is not configured.
+       * Création d'issues GitHub (/feature-request). Sans jeton, la commande
+       * répond qu'elle n'est pas configurée.
        */
       githubToken: optional(env, 'GITHUB_TOKEN', '') || null,
       githubRepository: optional(env, 'GITHUB_REPOSITORY', 'Terrebonne-Debug/td-discord-bot'),

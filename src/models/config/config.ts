@@ -2,7 +2,11 @@ import type { EffortLevel } from './effort-level.ts';
 import type { LogLevel } from './log-level.ts';
 import type { ThinkingMode } from './thinking-mode.ts';
 
-/** Every configuration value, after validation and defaulting. */
+/**
+ * Chaque valeur de configuration, après validation et défauts.
+ *
+ * @interface
+ */
 export interface Config {
   discordToken: string;
   discordGuildId: string | null;

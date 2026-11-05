@@ -32,7 +32,7 @@ async function connect({
   });
 }
 
-test('connect falls back to in-RAM memory without a URI', async (t) => {
+test('connect replie sur la mémoire RAM sans URI', async (t) => {
   const warn = t.mock.method(console, 'warn');
   const store = await MemoryStore.connect({
     uri: null,
@@ -42,11 +42,11 @@ test('connect falls back to in-RAM memory without a URI', async (t) => {
   });
 
   assert.equal(store.mode, 'memory');
-  assert.match(warn.mock.calls[0].arguments[0], /MONGODB_URI is not set/);
+  assert.match(warn.mock.calls[0].arguments[0], /MONGODB_URI n'est pas défini/);
   await store.close();
 });
 
-test('connect reports the RAM fallback to the injected logger', async () => {
+test('connect rapporte le repli RAM au journal injecté', async () => {
   const logger = createLogger();
   const store = await MemoryStore.connect({
     uri: null,
@@ -57,11 +57,11 @@ test('connect reports the RAM fallback to the injected logger', async () => {
   });
 
   assert.equal(store.mode, 'memory');
-  assert.match(logger.messages('warn')[0], /MONGODB_URI is not set/);
+  assert.match(logger.messages('warn')[0], /MONGODB_URI n'est pas défini/);
   await store.close();
 });
 
-test('connect falls back to in-RAM memory when MongoDB is unreachable', async (t) => {
+test('connect replie sur la mémoire RAM quand MongoDB est injoignable', async (t) => {
   const warn = t.mock.method(console, 'warn');
   const store = await MemoryStore.connect({
     uri: 'mongodb://127.0.0.1:1',
@@ -71,11 +71,11 @@ test('connect falls back to in-RAM memory when MongoDB is unreachable', async (t
   });
 
   assert.equal(store.mode, 'memory');
-  assert.match(warn.mock.calls[0].arguments[0], /MongoDB is unavailable/);
+  assert.match(warn.mock.calls[0].arguments[0], /MongoDB est indisponible/);
   await store.close();
 });
 
-test('in-RAM memory trims channel history to the configured turns', async () => {
+test('la mémoire RAM tronque l\'historique de canal aux tours configurés', async () => {
   const store = await MemoryStore.connect({
     uri: null,
     dbName: 'unused',
@@ -98,7 +98,7 @@ test('in-RAM memory trims channel history to the configured turns', async () => 
   await store.close();
 });
 
-test('MongoDB channel memory trims turns per channel', async () => {
+test('la mémoire MongoDB tronque les tours par canal', async () => {
   await withMongo(async ({ db, dbName }) => {
     const store = await connect({ dbName, maxHistoryTurns: 2 });
 
@@ -133,7 +133,7 @@ test('MongoDB channel memory trims turns per channel', async () => {
   });
 });
 
-test('channel memory is encrypted at rest when a key is configured', async () => {
+test('la mémoire de canal est chiffrée au repos quand une clé est configurée', async () => {
   await withMongo(async ({ db, dbName }) => {
     const store = await connect({ dbName, encryptionKey: TEST_KEY });
 
@@ -159,7 +159,7 @@ test('channel memory is encrypted at rest when a key is configured', async () =>
   });
 });
 
-test('legacy plaintext turns are still read alongside encrypted ones', async () => {
+test('les tours historiques en clair sont encore lus avec les tours chiffrés', async () => {
   await withMongo(async ({ db, dbName }) => {
     await collection(db, 'channel_memories').insertOne({
       _id: 'chan',
@@ -183,7 +183,7 @@ test('legacy plaintext turns are still read alongside encrypted ones', async () 
   });
 });
 
-test('tampered encrypted entries are skipped with a warning', async () => {
+test('les entrées chiffrées altérées sont ignorées avec un avertissement', async () => {
   await withMongo(async ({ db, dbName }) => {
     const store = await connect({ dbName, encryptionKey: TEST_KEY });
 
@@ -203,7 +203,7 @@ test('tampered encrypted entries are skipped with a warning', async () => {
         assert.deepEqual(await reader.getHistory('chan'), [
           { role: 'assistant', content: 'reply' },
         ]);
-        assert.match(logger.messages('warn')[0], /decryption failed/);
+        assert.match(logger.messages('warn')[0], /déchiffrement impossible/);
       } finally {
         await reader.close();
       }
@@ -213,7 +213,7 @@ test('tampered encrypted entries are skipped with a warning', async () => {
   });
 });
 
-test('encrypted entries without a key are skipped with a warning', async () => {
+test('les entrées chiffrées sans clé sont ignorées avec un avertissement', async () => {
   await withMongo(async ({ db, dbName }) => {
     const writer = await connect({ dbName, encryptionKey: TEST_KEY });
     try {
@@ -226,28 +226,28 @@ test('encrypted entries without a key are skipped with a warning', async () => {
     const reader = await connect({ dbName, logger });
     try {
       assert.deepEqual(await reader.getHistory('chan'), []);
-      assert.match(logger.messages('warn')[0], /stored in plaintext/);
-      assert.match(logger.messages('warn')[1], /no MEMORY_ENCRYPTION_KEY configured/);
+      assert.match(logger.messages('warn')[0], /stockée en clair/);
+      assert.match(logger.messages('warn')[1], /MEMORY_ENCRYPTION_KEY non configuré/);
     } finally {
       await reader.close();
     }
   });
 });
 
-test('connect warns when MongoDB is used without an encryption key', async () => {
+test('connect avertit quand MongoDB est utilisé sans clé de chiffrement', async () => {
   await withMongo(async ({ dbName }) => {
     const logger = createLogger();
     const store = await connect({ dbName, logger });
 
     try {
-      assert.match(logger.messages('warn')[0], /stored in plaintext/);
+      assert.match(logger.messages('warn')[0], /stockée en clair/);
     } finally {
       await store.close();
     }
   });
 });
 
-test('close ignores a failing MongoDB client close', async () => {
+test('close ignore un échec de fermeture du client MongoDB', async () => {
   const store = new MemoryStore({
     client: {
       close: async () => {
@@ -260,7 +260,7 @@ test('close ignores a failing MongoDB client close', async () => {
   await assert.doesNotReject(store.close());
 });
 
-test('stored turns are normalised before being sent to the model', async () => {
+test('les tours stockés sont normalisés avant l\'envoi au modèle', async () => {
   await withMongo(async ({ db, dbName }) => {
     await collection(db, 'channel_memories').insertOne({
       _id: 'chan',
@@ -293,7 +293,7 @@ test('stored turns are normalised before being sent to the model', async () => {
   });
 });
 
-test('MEMORY_TTL_DAYS creates a TTL index on channel_memories', async () => {
+test('MEMORY_TTL_DAYS crée un index TTL sur channel_memories', async () => {
   await withMongo(async ({ db, dbName }) => {
     const store = await connect({ dbName, ttlDays: 2 });
 
@@ -312,7 +312,7 @@ test('MEMORY_TTL_DAYS creates a TTL index on channel_memories', async () => {
   });
 });
 
-test('a conflicting TTL index is reported without disabling MongoDB memory', async (t) => {
+test('un index TTL en conflit est rapporté sans désactiver la mémoire MongoDB', async (t) => {
   const warn = t.mock.method(console, 'warn');
 
   await withMongo(async ({ db, dbName }) => {
@@ -325,7 +325,7 @@ test('a conflicting TTL index is reported without disabling MongoDB memory', asy
       assert.ok(
         warn.mock.calls.some((call) =>
           String(call.arguments[0]).includes(
-            'Could not create the TTL index on channel_memories',
+            'Impossible de créer l\'index TTL sur channel_memories',
           ),
         ),
       );

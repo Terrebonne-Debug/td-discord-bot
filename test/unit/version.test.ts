@@ -14,7 +14,7 @@ const runGitBroken = (): string => {
   throw new Error('git not available');
 };
 
-test('BuildInfoReader reads the package version and the short git commit', () => {
+test('BuildInfoReader lit la version du paquet et le commit git court', () => {
   /** Le cwd pointe vers la racine du projet, où package.json existe. */
   const info = new BuildInfoReader({ cwd: process.cwd(), runGit: runGitOk }).read();
 
@@ -22,28 +22,28 @@ test('BuildInfoReader reads the package version and the short git commit', () =>
   assert.equal(info.commit, 'abc1234');
 });
 
-test('BuildInfoReader degrades to unknown without git', () => {
+test('BuildInfoReader dégrade en inconnu sans git', () => {
   const info = new BuildInfoReader({ cwd: process.cwd(), runGit: runGitBroken }).read();
 
   assert.equal(info.version, '1.0.0');
-  assert.equal(info.commit, 'unknown');
+  assert.equal(info.commit, 'inconnu');
 });
 
-test('BuildInfoReader degrades to unknown without a package.json', () => {
+test('BuildInfoReader dégrade en inconnu sans package.json', () => {
   const info = new BuildInfoReader({ cwd: '/chemin/inexistant', runGit: runGitOk }).read();
 
-  assert.equal(info.version, 'unknown');
+  assert.equal(info.version, 'inconnue');
   assert.equal(info.commit, 'abc1234');
 });
 
-test('BuildInfoReader degrades to unknown when package.json has no version', async () => {
+test('BuildInfoReader dégrade en inconnu quand package.json n\'a pas de version', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'td-version-'));
   try {
     await writeFile(path.join(dir, 'package.json'), '{}');
 
     const info = new BuildInfoReader({ cwd: dir, runGit: runGitOk }).read();
 
-    assert.equal(info.version, 'unknown');
+    assert.equal(info.version, 'inconnue');
     assert.equal(info.commit, 'abc1234');
   } finally {
     await rm(dir, { recursive: true, force: true });

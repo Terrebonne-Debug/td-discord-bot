@@ -1,2 +1,6 @@
-/** The DeepSeek reasoning effort applied while thinking is enabled. */
+/**
+ * L'effort de raisonnement DeepSeek appliqué quand la réflexion est activée.
+ *
+ * @type
+ */
 export type EffortLevel = 'low' | 'medium' | 'high' | 'max';
