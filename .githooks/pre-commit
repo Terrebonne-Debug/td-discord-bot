@@ -1,0 +1,13 @@
+#!/bin/sh
+# Corrige la mise en forme des fichiers indexés puis les ré-indexe : le
+# commit passe toujours, déjà formaté. Les erreurs non corrigeables (types,
+# logique) restent le travail de la CI, jamais de ce hook.
+# Installation unique : git config core.hooksPath .githooks
+
+files=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(ts|js|json)$') || exit 0
+if [ -z "$files" ]; then
+  exit 0
+fi
+
+npx biome check --write $files
+git add -u

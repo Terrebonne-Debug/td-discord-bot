@@ -3,7 +3,9 @@ name: CI
 on:
   push:
     branches: [main]
+    paths-ignore: ['documentation/**', '*.md']
   pull_request:
+    paths-ignore: ['documentation/**', '*.md']
   workflow_dispatch:
 
 concurrency:
@@ -37,6 +39,78 @@ jobs:
 
       - name: Typecheck sources and tests
         run: npm run check
+
+  lint:
+    name: Lint and format
+    runs-on: [self-hosted, Linux, X64, discord-bot]
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Vérification seulement : le hook de pré-commit a déjà corrigé. En
+      # cas d'échec, exécuter « npm run fix » puis pousser à nouveau ; le job
+      # format ci-dessous corrige tout seul les PR du dépôt.
+      - name: Check lint and formatting
+        run: npm run lint
+
+  format:
+    name: Auto-fix lint and formatting
+    needs: lint
+    if: failure() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, Linux, X64, discord-bot]
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout the pull request branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply safe fixes
+        run: npm run fix
+
+      - name: Push the fixes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: 'style : appliquer la mise en forme automatiquement'
+
+  secrets:
+    name: Secret scan
+    runs-on: [self-hosted, Linux, X64, discord-bot]
+    timeout-minutes: 10
+    steps:
+      - name: Checkout with full history
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # Balaye l'historique git à la recherche de secrets (jetons, clés)
+      # oubliés. Échoue à la moindre trouvaille ; les faux positifs se
+      # déclarent dans un .gitleaks.toml.
+      - name: Scan for leaked secrets
+        run: |
+          docker run --rm -v "$PWD:/scan" ghcr.io/gitleaks/gitleaks:v8.24.3 \
+            detect --source /scan --exit-code 1
 
   security:
     name: CVE scan
@@ -94,6 +168,21 @@ jobs:
         env:
           MONGODB_TEST_URI: mongodb://127.0.0.1:27018
         run: npm run test:coverage
+
+      # Le point d'entrée doit démarrer et échouer proprement sur un jeton
+      # invalide : un garde-fou contre les régressions du démarrage.
+      - name: Smoke test the startup path
+        run: |
+          set +e
+          output=$(DISCORD_TOKEN=invalide DEEPSEEK_API_KEY=invalide \
+            LOG_FILE_ENABLED=false node src/index.ts 2>&1)
+          code=$?
+          set -e
+          echo "$output"
+          if [ "$code" -ne 1 ] || ! echo "$output" | grep -q 'Échec du démarrage du bot'; then
+            echo 'Le démarrage aurait dû échouer proprement (code 1).' >&2
+            exit 1
+          fi
 
       - name: Stop the test MongoDB
         if: always()

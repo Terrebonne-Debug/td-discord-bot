@@ -1,6 +1,6 @@
-import type { Command } from './command.ts';
 import type { InteractionLike } from '../../models/discord/interaction-like.ts';
 import type { BuildInfo } from '../../models/version/build-info.ts';
+import type { Command } from './command.ts';
 
 /**
  * `/version` : affiche le numéro de version et le dernier commit.

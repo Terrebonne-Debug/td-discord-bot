@@ -36,7 +36,7 @@ test('BuildInfoReader dégrade en inconnu sans package.json', () => {
   assert.equal(info.commit, 'abc1234');
 });
 
-test('BuildInfoReader dégrade en inconnu quand package.json n\'a pas de version', async () => {
+test("BuildInfoReader dégrade en inconnu quand package.json n'a pas de version", async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'td-version-'));
   try {
     await writeFile(path.join(dir, 'package.json'), '{}');
@@ -49,4 +49,3 @@ test('BuildInfoReader dégrade en inconnu quand package.json n\'a pas de version
     await rm(dir, { recursive: true, force: true });
   }
 });
-

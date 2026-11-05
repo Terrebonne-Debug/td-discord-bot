@@ -1,5 +1,5 @@
-import { MongoClient } from 'mongodb';
 import type { Collection, Db } from 'mongodb';
+import { MongoClient } from 'mongodb';
 import { MemoryCipher } from '../crypto/memory-cipher.ts';
 import { LoggerFactory } from '../logging/logger-factory.ts';
 import type { EncryptedTurn } from '../models/crypto/encrypted-turn.ts';
@@ -113,9 +113,7 @@ export class MemoryStore implements ConversationMemory {
     for (const turn of turns) {
       if (MemoryCipher.isEncryptedTurn(turn)) {
         if (!cipher) {
-          logger.warn(
-            `Tour chiffré ignoré : MEMORY_ENCRYPTION_KEY non configuré (clé ${aad}).`,
-          );
+          logger.warn(`Tour chiffré ignoré : MEMORY_ENCRYPTION_KEY non configuré (clé ${aad}).`);
           continue;
         }
         try {
@@ -204,7 +202,9 @@ export class MemoryStore implements ConversationMemory {
       });
       await MemoryStore.#ensureTtlIndexes(db, ttlDays, logger);
       if (!encryptionKey) {
-        logger.warn("MEMORY_ENCRYPTION_KEY n'est pas défini ; la mémoire des canaux est stockée en clair.");
+        logger.warn(
+          "MEMORY_ENCRYPTION_KEY n'est pas défini ; la mémoire des canaux est stockée en clair.",
+        );
       }
       return new MemoryStore({ client, db, maxHistoryTurns, encryptionKey, logger });
     } catch (error) {
@@ -294,4 +294,3 @@ export class MemoryStore implements ConversationMemory {
     return this.#db!.collection<MemoryDocument>(MemoryStore.#channelCollection);
   }
 }
-

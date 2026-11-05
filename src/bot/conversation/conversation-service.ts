@@ -1,8 +1,8 @@
 import { MemoryUnavailableError } from '../../errors/memory-unavailable-error.ts';
-import { Errors } from '../../utils/errors.ts';
 import type { BotLogger } from '../../models/logging/bot-logger.ts';
 import type { ConversationMemory } from '../../models/memory/conversation-memory.ts';
 import type { Turn } from '../../models/memory/turn.ts';
+import { Errors } from '../../utils/errors.ts';
 import type { ConversationStrategy } from './conversation-strategy.ts';
 
 /**

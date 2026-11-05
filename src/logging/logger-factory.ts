@@ -21,12 +21,10 @@ export class LoggerFactory {
   static #levelOrder: Record<LogLevel, number> = { error: 0, warn: 1, info: 2, debug: 3 };
 
   /** @type {winston.Format} Le format console lisible. */
-  static #consoleFormat = winston.format.printf(
-    ({ level, message, timestamp, ...fields }) => {
-      const extras = Object.keys(fields).length > 0 ? ` ${JSON.stringify(fields)}` : '';
-      return `${timestamp} [${level.toUpperCase()}] ${message}${extras}`;
-    },
-  );
+  static #consoleFormat = winston.format.printf(({ level, message, timestamp, ...fields }) => {
+    const extras = Object.keys(fields).length > 0 ? ` ${JSON.stringify(fields)}` : '';
+    return `${timestamp} [${level.toUpperCase()}] ${message}${extras}`;
+  });
 
   /**
    * Indique si un niveau passe le seuil configuré.

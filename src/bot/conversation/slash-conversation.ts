@@ -1,9 +1,9 @@
 import { MessageFlags } from 'discord.js';
-import { Bot } from '../bot.ts';
-import type { ConversationStrategy } from './conversation-strategy.ts';
+import type { BotSettings } from '../../models/bot/bot-settings.ts';
 import type { InteractionLike } from '../../models/discord/interaction-like.ts';
 import type { BotLogger } from '../../models/logging/bot-logger.ts';
-import type { BotSettings } from '../../models/bot/bot-settings.ts';
+import { Bot } from '../bot.ts';
+import type { ConversationStrategy } from './conversation-strategy.ts';
 
 /**
  * La variante `/q` : interaction slash, réponses via deferReply/editReply.

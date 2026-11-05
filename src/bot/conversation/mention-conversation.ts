@@ -1,9 +1,9 @@
 import { ChannelType } from 'discord.js';
-import { Bot } from '../bot.ts';
-import type { ConversationStrategy } from './conversation-strategy.ts';
+import type { BotSettings } from '../../models/bot/bot-settings.ts';
 import type { MessageLike } from '../../models/discord/message-like.ts';
 import type { BotLogger } from '../../models/logging/bot-logger.ts';
-import type { BotSettings } from '../../models/bot/bot-settings.ts';
+import { Bot } from '../bot.ts';
+import type { ConversationStrategy } from './conversation-strategy.ts';
 
 /**
  * La variante mention : message Discord, réponses via reply/send.

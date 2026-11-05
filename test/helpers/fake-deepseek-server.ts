@@ -1,6 +1,6 @@
 import { once } from 'node:events';
-import http from 'node:http';
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 
 async function readJson(req: IncomingMessage): Promise<Record<string, any>> {

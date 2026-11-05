@@ -87,7 +87,7 @@ export class ConfigLoader {
       systemPrompt: this.#optional(
         env,
         'SYSTEM_PROMPT',
-        'Tu es un bot Discord utile propulsé par DeepSeek. Réponds clairement et de façon concise, avec du Markdown qui s\'affiche bien dans Discord.',
+        "Tu es un bot Discord utile propulsé par DeepSeek. Réponds clairement et de façon concise, avec du Markdown qui s'affiche bien dans Discord.",
       ),
       maxHistoryTurns: this.#positiveInt(env, 'MAX_HISTORY_TURNS', 10),
       maxPromptChars: this.#positiveInt(env, 'MAX_PROMPT_CHARS', 4000),
@@ -118,11 +118,7 @@ export class ConfigLoader {
        * répond qu'elle n'est pas configurée.
        */
       githubToken: this.#optional(env, 'GITHUB_TOKEN', '') || null,
-      githubRepository: this.#optional(
-        env,
-        'GITHUB_REPOSITORY',
-        'Terrebonne-Debug/td-discord-bot',
-      ),
+      githubRepository: this.#optional(env, 'GITHUB_REPOSITORY', 'Terrebonne-Debug/td-discord-bot'),
     });
   }
 
@@ -190,12 +186,7 @@ export class ConfigLoader {
    * @returns {number | null} Le nombre, ou null si absent.
    * @throws Quand la valeur sort des bornes.
    */
-  #optionalNumber(
-    env: NodeJS.ProcessEnv,
-    name: string,
-    min: number,
-    max: number,
-  ): number | null {
+  #optionalNumber(env: NodeJS.ProcessEnv, name: string, min: number, max: number): number | null {
     const raw = this.#optional(env, name, '');
     if (!raw) return null;
 

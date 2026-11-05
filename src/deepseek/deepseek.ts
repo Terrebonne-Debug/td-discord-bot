@@ -21,7 +21,9 @@ export class DeepSeek {
    * @param {DeepSeekClientSettings} settings - Clé, URL de base et délai.
    * @returns {DeepSeekClient} Le client prêt à l'emploi.
    */
-  static createClient(settings: DeepSeekClientSettings = ConfigLoader.load(process.env)): DeepSeekClient {
+  static createClient(
+    settings: DeepSeekClientSettings = ConfigLoader.load(process.env),
+  ): DeepSeekClient {
     /**
      * Le vrai client expose `messages.create` sous forme de surcharges que
      * TypeScript ne peut pas réduire à la seule signature appelée par le bot ;

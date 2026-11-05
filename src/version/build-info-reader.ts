@@ -63,4 +63,3 @@ export class BuildInfoReader {
     return { version, commit };
   }
 }
-

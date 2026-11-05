@@ -61,7 +61,7 @@ test('Bot.startTyping est sans effet sans canal utilisable', () => {
   assert.doesNotThrow(() => Bot.startTyping({})());
 });
 
-test('Bot.startTyping envoie immédiatement et répète jusqu\'à l\'arrêt', async () => {
+test("Bot.startTyping envoie immédiatement et répète jusqu'à l'arrêt", async () => {
   let calls = 0;
   const stop = Bot.startTyping(
     {
@@ -153,6 +153,8 @@ test('Bot.registerCommands journalise au lieu de lever quand Discord rejette la 
 
   await Bot.registerCommands(client, { discordGuildId: 'guild-1', maxPromptChars: 4000 }, logger);
 
-  assert.match(logger.messages('error')[0], /Impossible d'enregistrer les commandes slash : discord en panne/);
+  assert.match(
+    logger.messages('error')[0],
+    /Impossible d'enregistrer les commandes slash : discord en panne/,
+  );
 });
-

@@ -1,11 +1,11 @@
 import { MessageFlags } from 'discord.js';
-import { Commands } from '../commands.ts';
-import { Errors } from '../../utils/errors.ts';
-import type { Command } from './command.ts';
+import type { BotSettings } from '../../models/bot/bot-settings.ts';
 import type { InteractionLike } from '../../models/discord/interaction-like.ts';
 import type { ModalSubmitLike } from '../../models/discord/modal-submit-like.ts';
-import type { BotSettings } from '../../models/bot/bot-settings.ts';
 import type { BotLogger } from '../../models/logging/bot-logger.ts';
+import { Errors } from '../../utils/errors.ts';
+import { Commands } from '../commands.ts';
+import type { Command } from './command.ts';
 
 /**
  * `/feature-request` : ouvre le formulaire titre + description, puis crée
@@ -54,8 +54,7 @@ export class FeatureRequestCommand implements Command {
   async handle(interaction: InteractionLike): Promise<void> {
     if (!this.#settings.githubToken) {
       await interaction.reply({
-        content:
-          'Les demandes de fonctionnalités ne sont pas configurées (GITHUB_TOKEN manquant).',
+        content: 'Les demandes de fonctionnalités ne sont pas configurées (GITHUB_TOKEN manquant).',
         flags: MessageFlags.Ephemeral,
       });
       return;
@@ -97,9 +96,7 @@ export class FeatureRequestCommand implements Command {
         allowedMentions: { parse: [] },
       });
     } catch (error) {
-      this.#logger.error(
-        `Impossible de créer l'issue de demande : ${Errors.messageOf(error)}`,
-      );
+      this.#logger.error(`Impossible de créer l'issue de demande : ${Errors.messageOf(error)}`);
       await modal
         .editReply({
           content: 'Impossible de créer la demande pour le moment. Réessaie plus tard.',

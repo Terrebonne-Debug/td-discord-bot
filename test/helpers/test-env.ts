@@ -29,4 +29,3 @@ const DEFAULTS: Record<string, string> = {
 for (const [name, value] of Object.entries(DEFAULTS)) {
   process.env[name] = value;
 }
-

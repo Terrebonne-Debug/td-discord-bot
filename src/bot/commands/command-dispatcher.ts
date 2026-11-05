@@ -1,8 +1,8 @@
-import { Errors } from '../../utils/errors.ts';
-import type { Command } from './command.ts';
 import type { InteractionLike } from '../../models/discord/interaction-like.ts';
 import type { ModalSubmitLike } from '../../models/discord/modal-submit-like.ts';
 import type { BotLogger } from '../../models/logging/bot-logger.ts';
+import { Errors } from '../../utils/errors.ts';
+import type { Command } from './command.ts';
 
 /**
  * Achemine chaque interaction entrante vers sa commande : les entrées de

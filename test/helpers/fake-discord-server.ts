@@ -1,9 +1,9 @@
 import { EventEmitter, once } from 'node:events';
-import http from 'node:http';
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import http from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { WebSocketServer } from 'ws';
 import type { WebSocket } from 'ws';
+import { WebSocketServer } from 'ws';
 
 type Json = Record<string, any>;
 
@@ -148,10 +148,7 @@ export async function startFakeDiscord({
     return item;
   }
 
-  function waitForRequest(
-    predicate: (item: Json) => boolean,
-    timeoutMs = 5_000,
-  ): Promise<Json> {
+  function waitForRequest(predicate: (item: Json) => boolean, timeoutMs = 5_000): Promise<Json> {
     const existing = requests.find(predicate);
     if (existing) return Promise.resolve(existing);
 
@@ -217,7 +214,10 @@ export async function startFakeDiscord({
     return null;
   }
 
-  function commandsResponse(commands: readonly unknown[], guildIdForCommand: string | null = null): Json[] {
+  function commandsResponse(
+    commands: readonly unknown[],
+    guildIdForCommand: string | null = null,
+  ): Json[] {
     return commands.map((command, index) => ({
       id: `cmd-${guildIdForCommand ?? 'global'}-${index}`,
       application_id: applicationId,
@@ -260,11 +260,7 @@ export async function startFakeDiscord({
     match = pathname.match(/^\/v10\/applications\/([^/]+)\/guilds\/([^/]+)\/commands$/);
     if (method === 'PUT' && match) {
       record({ kind: 'guildCommands', method, path: pathname, body, guildId: match[2] });
-      sendJson(
-        res,
-        200,
-        commandsResponse(Array.isArray(body) ? body : [], match[2]),
-      );
+      sendJson(res, 200, commandsResponse(Array.isArray(body) ? body : [], match[2]));
       return;
     }
 
@@ -280,11 +276,7 @@ export async function startFakeDiscord({
       const channelId = match[1];
       record({ kind: 'message', method, path: pathname, channelId, body });
       const channel = channelById(channelId);
-      sendJson(
-        res,
-        200,
-        outgoingMessage(channelId, body, channel?.guild_id ?? null),
-      );
+      sendJson(res, 200, outgoingMessage(channelId, body, channel?.guild_id ?? null));
       return;
     }
 
@@ -481,13 +473,9 @@ export async function startFakeDiscord({
         id: `cmd-${commandName}`,
         name: commandName,
         type: 1,
-        options: subcommand
-          ? [{ name: subcommand, type: 1 }]
-          : options,
+        options: subcommand ? [{ name: subcommand, type: 1 }] : options,
       },
-      authorizing_integration_owners: dm
-        ? { 1: humanUserId }
-        : { 0: guildId },
+      authorizing_integration_owners: dm ? { 1: humanUserId } : { 0: guildId },
       entitlements: [],
       version: 1,
       locale: 'en-US',
@@ -575,9 +563,7 @@ export async function startFakeDiscord({
     close() {
       for (const client of wss.clients) client.terminate();
       server.closeAllConnections?.();
-      return new Promise<void>((resolve) =>
-        wss.close(() => server.close(() => resolve())),
-      );
+      return new Promise<void>((resolve) => wss.close(() => server.close(() => resolve())));
     },
   };
 }

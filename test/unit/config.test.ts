@@ -96,17 +96,27 @@ test('ConfigLoader.parse nettoie les valeurs, minuscule les énumérations et ap
   assert.equal(config.githubRepository, 'owner/custom-repo');
 });
 
-test('ConfigLoader.parse rejette les variables requises manquantes ou d\'exemple', () => {
-  assert.throws(() => new ConfigLoader().parse({ DEEPSEEK_API_KEY: 'key' }), /Variable d'environnement requise manquante : DISCORD_TOKEN/);
-  assert.throws(() => new ConfigLoader().parse({ DISCORD_TOKEN: 'token' }), /Variable d'environnement requise manquante : DEEPSEEK_API_KEY/);
-  assert.throws(() => new ConfigLoader().parse({ DISCORD_TOKEN: '   ', DEEPSEEK_API_KEY: 'key' }), /requise manquante/);
+test("ConfigLoader.parse rejette les variables requises manquantes ou d'exemple", () => {
   assert.throws(
-    () => new ConfigLoader().parse({ DISCORD_TOKEN: 'your_discord_token', DEEPSEEK_API_KEY: 'key' }),
+    () => new ConfigLoader().parse({ DEEPSEEK_API_KEY: 'key' }),
+    /Variable d'environnement requise manquante : DISCORD_TOKEN/,
+  );
+  assert.throws(
+    () => new ConfigLoader().parse({ DISCORD_TOKEN: 'token' }),
+    /Variable d'environnement requise manquante : DEEPSEEK_API_KEY/,
+  );
+  assert.throws(
+    () => new ConfigLoader().parse({ DISCORD_TOKEN: '   ', DEEPSEEK_API_KEY: 'key' }),
+    /requise manquante/,
+  );
+  assert.throws(
+    () =>
+      new ConfigLoader().parse({ DISCORD_TOKEN: 'your_discord_token', DEEPSEEK_API_KEY: 'key' }),
     /a encore sa valeur d'exemple/,
   );
 });
 
-test('ConfigLoader.parse rejette les valeurs d\'énumération invalides', () => {
+test("ConfigLoader.parse rejette les valeurs d'énumération invalides", () => {
   assert.throws(
     () => new ConfigLoader().parse(baseEnv({ DEEPSEEK_THINKING: 'sometimes' })),
     /DEEPSEEK_THINKING doit valoir « enabled » ou « disabled »/,

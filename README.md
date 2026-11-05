@@ -239,7 +239,9 @@ git check-ignore -v .env
 
 ```bash
 npm start             # lancer le bot
-npm run check         # vérifier les types de src/ et test/ (tsc --noEmit)
+npm run check         # vérifier les types de src/, test/ et scripts/ (tsc --noEmit)
+npm run lint          # vérifier lint et mise en forme (biome)
+npm run fix           # corriger automatiquement lint et mise en forme
 npm test              # tests unitaires, fonctionnels et bout en bout
 npm run test:coverage # idem, avec un seuil de couverture de 100 %
 ```

@@ -12,8 +12,8 @@
 import 'dotenv/config';
 import { MongoClient } from 'mongodb';
 import { MemoryCipher } from '../src/crypto/memory-cipher.ts';
-import { Errors } from '../src/utils/errors.ts';
 import type { Turn } from '../src/models/memory/turn.ts';
+import { Errors } from '../src/utils/errors.ts';
 
 const channelId = process.argv[2];
 const uri = process.env.MONGODB_URI?.trim();
@@ -33,7 +33,10 @@ function printableTurns(turns: unknown, aad: string): PrintableTurn[] {
       try {
         return new MemoryCipher(key).decryptTurn(turn, aad);
       } catch {
-        return { role: '?', content: '<déchiffrement impossible (entrée altérée ou mauvaise clé)>' };
+        return {
+          role: '?',
+          content: '<déchiffrement impossible (entrée altérée ou mauvaise clé)>',
+        };
       }
     }
     return turn as Turn;
@@ -73,4 +76,3 @@ if (!channelId) {
     await client.close();
   }
 }
-
