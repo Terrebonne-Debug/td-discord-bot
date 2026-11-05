@@ -43,10 +43,7 @@ test('DeepSeek envoie les options de réflexion et concatène les blocs de texte
   ]);
   const deepseek = new DeepSeek({ settings: enabledSettings, client });
 
-  const reply = await deepseek.ask(
-    [{ role: 'user', content: 'earlier' }],
-    'prompt',
-  );
+  const reply = await deepseek.ask([{ role: 'user', content: 'earlier' }], 'prompt');
 
   assert.equal(reply, 'hello \nworld');
   assert.equal(client.calls.length, 1);
@@ -104,7 +101,10 @@ test('DeepSeek.describeError cartographie les délais, statuts et échecs inconn
   assert.match(DeepSeek.describeError({ status: 401 }), /a rejeté la clé API/);
   assert.match(DeepSeek.describeError({ status: 402 }), /solde insuffisant/);
   assert.match(DeepSeek.describeError({ status: 403 }), /a refusé la requête/);
-  assert.match(DeepSeek.describeError({ status: 404 }), /point d'accès ou le modèle DeepSeek configuré est introuvable/);
+  assert.match(
+    DeepSeek.describeError({ status: 404 }),
+    /point d'accès ou le modèle DeepSeek configuré est introuvable/,
+  );
   assert.match(DeepSeek.describeError({ status: 429 }), /limite le débit/);
   assert.match(DeepSeek.describeError({ status: 503 }), /momentanément indisponible/);
   assert.match(DeepSeek.describeError({ status: 418 }), /requête DeepSeek a échoué/);

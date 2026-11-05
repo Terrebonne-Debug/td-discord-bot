@@ -3,7 +3,9 @@ name: CI
 on:
   push:
     branches: [main]
+    paths-ignore: ['documentation/**', '*.md']
   pull_request:
+    paths-ignore: ['documentation/**', '*.md']
   workflow_dispatch:
 
 concurrency:
@@ -16,7 +18,7 @@ permissions:
 jobs:
   basics:
     name: Basic checks
-    runs-on: [self-hosted, Linux, X64, discord-bot]
+    runs-on: [self-hosted, Linux, X64, discord-bot, primary]
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -38,6 +40,69 @@ jobs:
       - name: Typecheck sources and tests
         run: npm run check
 
+  lint:
+    name: Lint and format
+    runs-on: [self-hosted, Linux, X64, discord-bot, primary]
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Vérification seulement : le hook de pré-commit a déjà corrigé. Si le
+      # lint échoue quand même (hook contourné, autre machine), le job se
+      # corrige tout seul dans le MÊME run : fixes sûrs, nouvelle vérification,
+      # puis poussée du commit de correction. Le run ne passe au rouge que si
+      # le code est encore cassé après correction (erreur non corrigeable) —
+      # aucune fenêtre rouge, aucun run supplémentaire.
+      - name: Check lint and formatting
+        id: lint
+        continue-on-error: true
+        run: npm run lint
+
+      - name: Apply safe fixes
+        if: steps.lint.outcome == 'failure' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        run: npm run fix
+
+      - name: Re-check after the fixes
+        if: steps.lint.outcome == 'failure' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        run: npm run lint
+
+      - name: Push the fixes
+        if: steps.lint.outcome == 'failure' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: 'style : appliquer la mise en forme automatiquement'
+          skip_dirty_check: true
+
+  secrets:
+    name: Secret scan
+    runs-on: [self-hosted, Linux, X64, discord-bot]
+    timeout-minutes: 10
+    steps:
+      - name: Checkout with full history
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # Balaye l'historique git à la recherche de secrets (jetons, clés)
+      # oubliés. Échoue à la moindre trouvaille ; les faux positifs se
+      # déclarent dans un .gitleaks.toml.
+      - name: Scan for leaked secrets
+        run: |
+          docker run --rm -v "$PWD:/scan" ghcr.io/gitleaks/gitleaks:v8.24.3 \
+            detect --source /scan --exit-code 1
+
   security:
     name: CVE scan
     runs-on: [self-hosted, Linux, X64, discord-bot]
@@ -56,8 +121,7 @@ jobs:
 
   tests:
     name: Tests and 100% coverage
-    needs: basics
-    runs-on: [self-hosted, Linux, X64, discord-bot]
+    runs-on: [self-hosted, Linux, X64, discord-bot, primary]
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -73,6 +137,11 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      # Le typecheck ouvre le job : sans la dépendance vers basics, un échec
+      # de types échoue ici, avant de mobiliser MongoDB et la suite.
+      - name: Typecheck sources and tests
+        run: npm run check
 
       - name: Start an isolated MongoDB
         run: |
@@ -94,6 +163,21 @@ jobs:
         env:
           MONGODB_TEST_URI: mongodb://127.0.0.1:27018
         run: npm run test:coverage
+
+      # Le point d'entrée doit démarrer et échouer proprement sur un jeton
+      # invalide : un garde-fou contre les régressions du démarrage.
+      - name: Smoke test the startup path
+        run: |
+          set +e
+          output=$(DISCORD_TOKEN=invalide DEEPSEEK_API_KEY=invalide \
+            LOG_FILE_ENABLED=false node src/index.ts 2>&1)
+          code=$?
+          set -e
+          echo "$output"
+          if [ "$code" -ne 1 ] || ! echo "$output" | grep -q 'Échec du démarrage du bot'; then
+            echo 'Le démarrage aurait dû échouer proprement (code 1).' >&2
+            exit 1
+          fi
 
       - name: Stop the test MongoDB
         if: always()

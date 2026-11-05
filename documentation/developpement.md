@@ -31,6 +31,8 @@
 ```bash
 npm start             # lancer le bot (node src/index.ts)
 npm run check         # vérifier les types de src/, test/ et scripts/ (tsc --noEmit)
+npm run lint          # vérifier lint et mise en forme (biome check)
+npm run fix           # corriger automatiquement lint et mise en forme
 npm test              # tests unitaires, fonctionnels et bout en bout
 npm run test:coverage # idem, avec un seuil de couverture de 100 %
 ```
@@ -52,19 +54,35 @@ implémentent les interfaces de `src/models/` : aucune bibliothèque de mock.
 ## CI
 
 Le workflow `.github/workflows/ci.yml` (runner auto-hébergé `mkII`) découpe le
-flot en trois jobs :
+flot en six jobs :
 
 1. `basics` — `npm ci` puis `npm run check` (types) ;
-2. `security` — balayage CVE des dépendances avec osv-scanner (version
-   épinglée) contre la base OSV : toute vulnérabilité connue fait échouer la
-   CI ; les faux positifs se déclarent dans un `osv-scanner.toml` ;
-3. `tests` (après `basics`) — suite complète avec un MongoDB isolé et les
-   seuils de couverture.
+2. `lint` — `biome check` en vérification seule, **auto-cicatrisant** : en
+   cas d'échec (hook contourné, autre machine), il applique `npm run fix`,
+   re-vérifie dans le même run et pousse un commit « style : … » — le job ne
+   passe au rouge que si le code est encore cassé après correction, donc
+   jamais de fenêtre rouge ni de run supplémentaire ;
+3. `secrets` — gitleaks balaye l'historique git à la recherche de jetons ou
+   clés oubliés ; les faux positifs se déclarent dans un `.gitleaks.toml` ;
+4. `security` — balayage CVE des dépendances avec osv-scanner (version
+   épinglée) contre la base OSV ; les faux positifs se déclarent dans un
+   `osv-scanner.toml` ;
+5. `tests` (après `basics`) — suite complète avec un MongoDB isolé, les seuils
+   de couverture et un test de fumée du démarrage (le point d'entrée doit
+   échouer proprement sur un jeton invalide).
 
-**Node est configuré une seule fois** : les deux `setup-node` lisent `.nvmrc`
-à la racine, et le cache d'outils du runner auto-hébergé persiste entre les
-jobs et les exécutions — la distribution n'est téléchargée qu'une fois, les
-jobs suivants affichent « Found in cache ».
+Les changements ne touchant que `documentation/**` ou `*.md` ne déclenchent
+pas la CI (`paths-ignore`).
+
+**Node est configuré une seule fois** : les `setup-node` lisent `.nvmrc` à la
+racine, et le cache d'outils du runner auto-hébergé persiste entre les jobs
+et les exécutions — la distribution n'est téléchargée qu'une fois, les jobs
+suivants affichent « Found in cache ».
+
+**Jamais de boucle lint** : le hook `.githooks/pre-commit` corrige et
+ré-indexe la mise en forme (le commit passe toujours), et le job `lint` se
+répare tout seul dans le même run quand quelque chose lui échappe.
+Activation unique du hook : `git config core.hooksPath .githooks`.
 
 ## Secrets
 

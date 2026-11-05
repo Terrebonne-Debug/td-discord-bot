@@ -1,9 +1,9 @@
-import { SlashConversation } from '../conversation/slash-conversation.ts';
-import type { ConversationService } from '../conversation/conversation-service.ts';
-import type { Command } from './command.ts';
-import type { InteractionLike } from '../../models/discord/interaction-like.ts';
 import type { BotSettings } from '../../models/bot/bot-settings.ts';
+import type { InteractionLike } from '../../models/discord/interaction-like.ts';
 import type { BotLogger } from '../../models/logging/bot-logger.ts';
+import type { ConversationService } from '../conversation/conversation-service.ts';
+import { SlashConversation } from '../conversation/slash-conversation.ts';
+import type { Command } from './command.ts';
 
 /**
  * `/q` : pose une question au modèle avec la mémoire du canal.

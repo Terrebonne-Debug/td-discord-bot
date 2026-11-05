@@ -75,7 +75,9 @@ test('ArchiveSweeper supprime les archives expirées, garde les fraîches et sur
   try {
     const day = 86_400_000;
     const now = new Date('2026-11-02T12:00:00Z');
-    const activeName = ArchiveSweeper.activeLogFilename(new Intl.DateTimeFormat('en-CA').format(now));
+    const activeName = ArchiveSweeper.activeLogFilename(
+      new Intl.DateTimeFormat('en-CA').format(now),
+    );
 
     /** Archives expirées et fraîche, contrôlées par leur date de modification. */
     await writeFile(path.join(dir, 'vieux.gz'), 'old');
@@ -109,4 +111,3 @@ test('ArchiveSweeper tolère un dossier disparu', async () => {
 
   await assert.doesNotReject(new ArchiveSweeper(dir, 14).sweep());
 });
-

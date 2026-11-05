@@ -2,10 +2,9 @@ import assert from 'node:assert/strict';
 import { EventEmitter, once } from 'node:events';
 import test from 'node:test';
 import { Client, GatewayIntentBits, Partials } from 'discord.js';
-import { Launcher } from '../../src/startup/launcher.ts';
 import type { MemoryConnectOptions } from '../../src/models/memory/memory-connect-options.ts';
-import type { ProcessLike } from '../../src/models/start/process-like.ts';
 import type { StartupConfig } from '../../src/models/start/startup-config.ts';
+import { Launcher } from '../../src/startup/launcher.ts';
 import { createFakeClient, createFakeMemory, createLogger } from '../helpers/fakes.ts';
 
 function makeProcess(): EventEmitter & { exits: number[]; exit(code: number): void } {
@@ -59,7 +58,7 @@ test('Launcher.createDefaultClient active les intents requis et les partials de 
   client.destroy();
 });
 
-test('l\'arrêt détruit le client et ferme la mémoire exactement une fois', async () => {
+test("l'arrêt détruit le client et ferme la mémoire exactement une fois", async () => {
   const client = createFakeClient();
   const memory = createFakeMemory();
   const logger = createLogger();
@@ -73,10 +72,7 @@ test('l\'arrêt détruit le client et ferme la mémoire exactement une fois', as
   assert.equal(code, 0);
   assert.equal(client.destroyed, true);
   assert.ok(memory.calls.some((call) => call.method === 'close'));
-  assert.deepEqual(logger.messages('info'), [
-    'Reçu SIGINT ; arrêt en cours.',
-    'Arrêt terminé',
-  ]);
+  assert.deepEqual(logger.messages('info'), ['Reçu SIGINT ; arrêt en cours.', 'Arrêt terminé']);
 
   processRef.emit('SIGTERM');
   await new Promise((resolve) => setImmediate(resolve));
@@ -149,7 +145,7 @@ test('Launcher.start connecte MongoDB, journalise les réglages et enregistre le
   assert.equal(client.destroyed, true);
 });
 
-test('Launcher.start journalise la mémoire MongoDB sans TTL quand aucun n\'est configuré', async () => {
+test("Launcher.start journalise la mémoire MongoDB sans TTL quand aucun n'est configuré", async () => {
   const client = createFakeClient();
   const memory = createFakeMemory({ mode: 'mongo' });
   const logger = createLogger();
@@ -188,7 +184,7 @@ test('Launcher.start journalise le repli en RAM quand MongoDB est indisponible',
     'Connecté en tant que TestBot#0001.',
     'DeepSeek : modèle=deepseek-v4-flash base=http://127.0.0.1:9999 réflexion=disabled',
     'Mémoire : repli en RAM (perdue au redémarrage).',
-    '5 commandes slash globales enregistrées (elles peuvent mettre jusqu\'à une heure à apparaître).',
+    "5 commandes slash globales enregistrées (elles peuvent mettre jusqu'à une heure à apparaître).",
   ]);
   assert.deepEqual(
     client.globalCommands.map((command) => command.name),
@@ -196,7 +192,7 @@ test('Launcher.start journalise le repli en RAM quand MongoDB est indisponible',
   );
 });
 
-test('Launcher.start nettoie et relève l\'erreur quand la connexion Discord échoue', async () => {
+test("Launcher.start nettoie et relève l'erreur quand la connexion Discord échoue", async () => {
   const client = createFakeClient();
   client.login = async () => {
     throw new Error('bad token');

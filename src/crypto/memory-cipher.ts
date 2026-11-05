@@ -22,7 +22,9 @@ export class MemoryCipher {
   static parseKey(hex: string | null): Buffer | null {
     if (!hex) return null;
     if (!/^[0-9a-fA-F]{64}$/.test(hex)) {
-      throw new Error('MEMORY_ENCRYPTION_KEY doit contenir 64 caractères hexadécimaux (32 octets).');
+      throw new Error(
+        'MEMORY_ENCRYPTION_KEY doit contenir 64 caractères hexadécimaux (32 octets).',
+      );
     }
     return Buffer.from(hex, 'hex');
   }

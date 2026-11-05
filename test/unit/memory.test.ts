@@ -75,7 +75,7 @@ test('connect replie sur la mémoire RAM quand MongoDB est injoignable', async (
   await store.close();
 });
 
-test('la mémoire RAM tronque l\'historique de canal aux tours configurés', async () => {
+test("la mémoire RAM tronque l'historique de canal aux tours configurés", async () => {
   const store = await MemoryStore.connect({
     uri: null,
     dbName: 'unused',
@@ -114,10 +114,7 @@ test('la mémoire MongoDB tronque les tours par canal', async () => {
         { role: 'assistant', content: 'cr3' },
       ]);
       assert.deepEqual(await store.getHistory('missing'), []);
-      assert.equal(
-        await collection(db, 'channel_memories').countDocuments({ _id: 'same-id' }),
-        1,
-      );
+      assert.equal(await collection(db, 'channel_memories').countDocuments({ _id: 'same-id' }), 1);
 
       const doc = await collection(db, 'channel_memories').findOne({ _id: 'same-id' });
       assert.ok(doc);
@@ -195,7 +192,10 @@ test('les entrées chiffrées altérées sont ignorées avec un avertissement', 
       assert.ok(doc);
       const tampered = JSON.parse(JSON.stringify(doc.turns));
       tampered[0].ciphertext = `${tampered[0].ciphertext[0] === '0' ? '1' : '0'}${tampered[0].ciphertext.slice(1)}`;
-      await collection(db, 'channel_memories').updateOne({ _id: 'chan' }, { $set: { turns: tampered } });
+      await collection(db, 'channel_memories').updateOne(
+        { _id: 'chan' },
+        { $set: { turns: tampered } },
+      );
 
       const logger = createLogger();
       const reader = await connect({ dbName, encryptionKey: TEST_KEY, logger });
@@ -214,7 +214,7 @@ test('les entrées chiffrées altérées sont ignorées avec un avertissement', 
 });
 
 test('les entrées chiffrées sans clé sont ignorées avec un avertissement', async () => {
-  await withMongo(async ({ db, dbName }) => {
+  await withMongo(async ({ dbName }) => {
     const writer = await connect({ dbName, encryptionKey: TEST_KEY });
     try {
       await writer.appendTurn('chan', 'secret', 'reply');
@@ -260,7 +260,7 @@ test('close ignore un échec de fermeture du client MongoDB', async () => {
   await assert.doesNotReject(store.close());
 });
 
-test('les tours stockés sont normalisés avant l\'envoi au modèle', async () => {
+test("les tours stockés sont normalisés avant l'envoi au modèle", async () => {
   await withMongo(async ({ db, dbName }) => {
     await collection(db, 'channel_memories').insertOne({
       _id: 'chan',
@@ -325,7 +325,7 @@ test('un index TTL en conflit est rapporté sans désactiver la mémoire MongoDB
       assert.ok(
         warn.mock.calls.some((call) =>
           String(call.arguments[0]).includes(
-            'Impossible de créer l\'index TTL sur channel_memories',
+            "Impossible de créer l'index TTL sur channel_memories",
           ),
         ),
       );
@@ -334,4 +334,3 @@ test('un index TTL en conflit est rapporté sans désactiver la mémoire MongoDB
     }
   });
 });
-

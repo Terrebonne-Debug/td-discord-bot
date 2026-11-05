@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { CommandDispatcher } from '../../../src/bot/commands/command-dispatcher.ts';
 import type { Command } from '../../../src/bot/commands/command.ts';
+import { CommandDispatcher } from '../../../src/bot/commands/command-dispatcher.ts';
 import { createFakeInteraction, createFakeModalSubmit, createLogger } from '../../helpers/fakes.ts';
 
 interface FakeCommand extends Command {
@@ -54,7 +54,7 @@ test('CommandDispatcher ignore les commandes inconnues et les interactions non-c
   assert.deepEqual(q.handled, []);
 });
 
-test('CommandDispatcher route les soumissions de modal et s\'arrête au premier preneur', async () => {
+test("CommandDispatcher route les soumissions de modal et s'arrête au premier preneur", async () => {
   const withoutSubmit = fakeCommand(['a']);
   const second = fakeCommand(['b'], {
     async handleSubmit(modal) {
@@ -70,7 +70,7 @@ test('CommandDispatcher route les soumissions de modal et s\'arrête au premier 
   assert.deepEqual(second.submitted, ['feature-request']);
 });
 
-test('CommandDispatcher ignore les modals qu\'aucune commande n\'accepte', async () => {
+test("CommandDispatcher ignore les modals qu'aucune commande n'accepte", async () => {
   const first = fakeCommand(['a'], {
     async handleSubmit(modal) {
       first.submitted.push(modal.customId);
@@ -114,4 +114,3 @@ test('CommandDispatcher journalise les échecs de soumission sans planter', asyn
     /Échec du traitement de la soumission feature-request : champ a échoué/,
   );
 });
-

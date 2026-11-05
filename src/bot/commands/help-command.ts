@@ -1,6 +1,6 @@
+import type { InteractionLike } from '../../models/discord/interaction-like.ts';
 import { Commands } from '../commands.ts';
 import type { Command } from './command.ts';
-import type { InteractionLike } from '../../models/discord/interaction-like.ts';
 
 /**
  * `/aide` et `/help` : exactement le même comportement, la liste des

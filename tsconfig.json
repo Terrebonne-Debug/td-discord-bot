@@ -7,6 +7,9 @@
     "types": ["node"],
 
     "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
 
     // Node.js executes the .ts sources directly (type stripping), so no
     // output is ever emitted and relative imports keep their .ts extension.

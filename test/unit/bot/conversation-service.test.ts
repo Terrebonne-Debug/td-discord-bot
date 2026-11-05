@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ConversationService } from '../../../src/bot/conversation/conversation-service.ts';
 import type { ConversationStrategy } from '../../../src/bot/conversation/conversation-strategy.ts';
-import { createFakeMemory, createLogger } from '../../helpers/fakes.ts';
 import type { Turn } from '../../../src/models/memory/turn.ts';
+import { createFakeMemory, createLogger } from '../../helpers/fakes.ts';
 
 interface ScriptedStrategy extends ConversationStrategy {
   calls: string[];
@@ -84,7 +84,7 @@ test('ConversationService ne fait rien quand prepare renvoie null', async () => 
   assert.equal(memory.calls.length, 0);
 });
 
-test('ConversationService déroule le flux complet et arrête l\'indicateur', async () => {
+test("ConversationService déroule le flux complet et arrête l'indicateur", async () => {
   const asks: Array<{ history: Turn[]; prompt: string }> = [];
   const strategy = scriptedStrategy();
   const { service, memory, logger } = setup({
@@ -127,7 +127,7 @@ test('ConversationService rapporte une conversation occupée sans interroger le 
   assert.deepEqual(asks, ['appelé']);
 });
 
-test('ConversationService rapporte les échecs de mémoire et les journalise avec l\'identité de la stratégie', async () => {
+test("ConversationService rapporte les échecs de mémoire et les journalise avec l'identité de la stratégie", async () => {
   const strategy = scriptedStrategy();
   const memory = createFakeMemory({ failures: { getHistory: 1 } });
   const { service, logger } = setup({ memory });
@@ -138,7 +138,7 @@ test('ConversationService rapporte les échecs de mémoire et les journalise ave
   assert.match(logger.messages('error')[0], /Échec du traitement de \/q/);
 });
 
-test('ConversationService tolère un rapport d\'erreur en échec', async () => {
+test("ConversationService tolère un rapport d'erreur en échec", async () => {
   const strategy = scriptedStrategy({ failReportError: true });
   const memory = createFakeMemory({ failures: { getHistory: 1 } });
   const { service } = setup({ memory });

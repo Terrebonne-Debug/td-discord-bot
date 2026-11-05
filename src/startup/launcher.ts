@@ -1,10 +1,9 @@
 import { Client, Events, GatewayIntentBits, Partials } from 'discord.js';
+import { Bot } from '../bot/bot.ts';
 import { ConfigLoader } from '../config/config-loader.ts';
 import { MemoryCipher } from '../crypto/memory-cipher.ts';
-import { MemoryStore } from '../memory/memory-store.ts';
-import { Bot } from '../bot/bot.ts';
 import { LoggerFactory } from '../logging/logger-factory.ts';
-import { BuildInfoReader } from '../version/build-info-reader.ts';
+import { MemoryStore } from '../memory/memory-store.ts';
 import type { BotClient } from '../models/discord/bot-client.ts';
 import type { BotLogger } from '../models/logging/bot-logger.ts';
 import type { ConversationMemory } from '../models/memory/conversation-memory.ts';
@@ -12,6 +11,7 @@ import type { MemoryConnectOptions } from '../models/memory/memory-connect-optio
 import type { ProcessLike } from '../models/start/process-like.ts';
 import type { StartupClient } from '../models/start/startup-client.ts';
 import type { StartupConfig } from '../models/start/startup-config.ts';
+import { BuildInfoReader } from '../version/build-info-reader.ts';
 
 /**
  * Démarre le bot : connecte la mémoire, ouvre la session Discord, enregistre

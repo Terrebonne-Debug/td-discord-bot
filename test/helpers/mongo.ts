@@ -1,5 +1,5 @@
-import { MongoClient } from 'mongodb';
 import type { Collection, Db } from 'mongodb';
+import { MongoClient } from 'mongodb';
 
 export const TEST_MONGODB_URI = process.env.MONGODB_TEST_URI ?? 'mongodb://127.0.0.1:27017';
 
@@ -43,7 +43,10 @@ export async function withMongo(
   try {
     return await fn({ client, db: client.db(dbName), dbName });
   } finally {
-    await client.db(dbName).dropDatabase().catch(() => {});
+    await client
+      .db(dbName)
+      .dropDatabase()
+      .catch(() => {});
     await client.close();
   }
 }

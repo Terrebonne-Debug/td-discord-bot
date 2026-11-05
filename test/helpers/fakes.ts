@@ -75,7 +75,10 @@ export interface FakeClient extends BotClient, StartupClient {
 export function createFakeClient({
   userId = BOT_USER_ID,
   tag = 'TestBot#0001',
-}: { userId?: string; tag?: string } = {}): FakeClient {
+}: {
+  userId?: string;
+  tag?: string;
+} = {}): FakeClient {
   const client = new EventEmitter();
   const fake = Object.assign(client, {
     user: { id: userId, tag },

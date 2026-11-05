@@ -7,7 +7,7 @@ const key = randomBytes(32);
 const otherKey = randomBytes(32);
 const cipher = new MemoryCipher(key);
 
-test('MemoryCipher.encryptTurn et decryptTurn font l\'aller-retour via l\'entrée scellée', () => {
+test("MemoryCipher.encryptTurn et decryptTurn font l'aller-retour via l'entrée scellée", () => {
   const entry = cipher.encryptTurn('user', 'contenu secret', 'channel-1');
 
   assert.equal(MemoryCipher.isEncryptedTurn(entry), true);
