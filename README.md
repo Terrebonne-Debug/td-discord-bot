@@ -15,6 +15,17 @@ qui a créé ce projet :
 
 Tout se modifie dans `.env`, sans toucher au code.
 
+## Documentation
+
+La documentation technique complète vit dans [`documentation/`](documentation/) :
+
+- [architecture](documentation/architecture.md) — structure du code, patrons Commande et Stratégie, injection de dépendances ;
+- [configuration](documentation/configuration.md) — toutes les variables d'environnement ;
+- [commandes](documentation/commandes.md) — comportements détaillés des commandes slash et des mentions ;
+- [memoire](documentation/memoire.md) — mémoire des canaux, chiffrement, expiration, déchiffrement manuel ;
+- [journalisation](documentation/journalisation.md) — journaux, rotation, archives gzip, rétention ;
+- [developpement](documentation/developpement.md) — conventions, tests, CI, secrets.
+
 ## Fonctionnalités
 
 - Mentionnez le bot dans un salon de serveur, ou envoyez-lui un MP.
