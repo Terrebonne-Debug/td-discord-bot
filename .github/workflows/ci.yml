@@ -24,10 +24,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      # Node est configuré une seule fois, via .nvmrc à la racine. Sur le
-      # runner auto-hébergé, le cache d'outils de setup-node persiste entre
-      # les jobs et les exécutions : la distribution est téléchargée au plus
-      # une fois, les autres jobs affichent « Found in cache ».
+      # Node est configuré une seule fois, via .nvmrc à la racine. La
+      # version y est épinglée exactement : même quand Node.js publie un
+      # nouveau correctif, setup-node retrouve la distribution dans le cache
+      # d'outils du runner auto-hébergé (« Found in cache »), sans aucun
+      # téléchargement.
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
@@ -127,8 +128,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      # Réutilise la même version (.nvmrc) ; sur le runner auto-hébergé,
-      # setup-node la retrouve dans son cache d'outils sans téléchargement.
+      # Réutilise la même version épinglée (.nvmrc) ; sur le runner
+      # auto-hébergé, setup-node la retrouve dans son cache d'outils sans
+      # téléchargement.
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
