@@ -2,6 +2,7 @@ import path from 'node:path';
 import winston from 'winston';
 import DailyRotateFile from 'winston-daily-rotate-file';
 import { ConfigLoader } from '../config/config-loader.ts';
+import { Logging } from '../constants.ts';
 import type { LogLevel } from '../models/config/log-level.ts';
 import type { BotLogger } from '../models/logging/bot-logger.ts';
 import type { LoggingConfig } from '../models/logging/logging-config.ts';
@@ -128,8 +129,8 @@ export class LoggerFactory {
     maxSize: string;
   } {
     return {
-      filename: path.join(this.#appConfig.logDir, 'bot-%DATE%.log'),
-      datePattern: 'YYYY-MM-DD',
+      filename: path.join(this.#appConfig.logDir, Logging.filenamePattern),
+      datePattern: Logging.dailyDatePattern,
       maxSize: `${this.#appConfig.logMaxSizeMb}m`,
     };
   }
@@ -145,7 +146,7 @@ export class LoggerFactory {
     const consoleTransport = new winston.transports.Console({
       format: stdout.isTTY
         ? winston.format.combine(
-            winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+            winston.format.timestamp({ format: Logging.timestampFormat }),
             LoggerFactory.#consoleFormat,
           )
         : winston.format.combine(winston.format.timestamp(), winston.format.json()),

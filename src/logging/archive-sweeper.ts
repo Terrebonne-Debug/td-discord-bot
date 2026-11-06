@@ -3,6 +3,7 @@ import { readdir, stat, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { createGzip } from 'node:zlib';
+import { Logging } from '../constants.ts';
 
 /**
  * Compresse les fichiers journaux dont la rotation est terminée et supprime
@@ -18,7 +19,7 @@ export class ArchiveSweeper {
   static #filenamePattern = /^bot-\d{4}-\d{2}-\d{2}\.log(\.\d+)?$/;
 
   /** @type {number} L'intervalle quotidien de balayage, en millisecondes. */
-  static #sweepIntervalMs = 24 * 3_600_000;
+  static #sweepIntervalMs = Logging.sweepIntervalMs;
 
   /**
    * Nom du fichier journal actif pour une date donnée (yyyy-MM-dd).
@@ -53,7 +54,7 @@ export class ArchiveSweeper {
    * @returns {string} La date formatée.
    */
   static #todayAsFilename(now: Date): string {
-    return new Intl.DateTimeFormat('en-CA').format(now);
+    return new Intl.DateTimeFormat(Logging.dateFormat).format(now);
   }
 
   /**
@@ -64,7 +65,7 @@ export class ArchiveSweeper {
    * @returns {Promise<void>}
    */
   static async #gzipFile(filePath: string): Promise<void> {
-    const gzPath = `${filePath}.gz`;
+    const gzPath = `${filePath}${Logging.gzipExtension}`;
     await pipeline(createReadStream(filePath), createGzip(), createWriteStream(gzPath));
     await unlink(filePath);
   }

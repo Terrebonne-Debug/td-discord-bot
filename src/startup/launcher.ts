@@ -1,6 +1,7 @@
 import { Client, Events, GatewayIntentBits, Partials } from 'discord.js';
 import { Bot } from '../bot/bot.ts';
 import { ConfigLoader } from '../config/config-loader.ts';
+import { LogMessages, Values } from '../constants.ts';
 import { MemoryCipher } from '../crypto/memory-cipher.ts';
 import { LoggerFactory } from '../logging/logger-factory.ts';
 import { MemoryStore } from '../memory/memory-store.ts';
@@ -69,10 +70,10 @@ export class Launcher {
       if (shuttingDown) return false;
       shuttingDown = true;
       const startedAt = performance.now();
-      logger.info(`Reçu ${signal} ; arrêt en cours.`);
+      logger.info(LogMessages.shutdownReceived(signal));
       client.destroy();
       await memory.close();
-      logger.info('Arrêt terminé', {
+      logger.info(LogMessages.shutdownComplete, {
         signal,
         ms: Math.round(performance.now() - startedAt),
       });
@@ -87,7 +88,7 @@ export class Launcher {
             if (didShutDown) processRef.exit(0);
           },
           (error) => {
-            logger.error(`Échec de l'arrêt : ${error}`);
+            logger.error(LogMessages.shutdownFailed(error));
             processRef.exit(1);
           },
         );
@@ -147,7 +148,7 @@ export class Launcher {
     memory: ConversationMemory;
     shutdown: (signal: string) => Promise<boolean>;
   }> {
-    this.#logger.info('Démarrage du bot', {
+    this.#logger.info(LogMessages.botStartup, {
       model: this.#appConfig.deepseekModel,
       thinking: this.#appConfig.deepseekThinking,
       effort: this.#appConfig.deepseekEffort,
@@ -176,20 +177,24 @@ export class Launcher {
 
     const ready = new Promise<void>((resolve) => {
       client.once(Events.ClientReady, async (readyClient) => {
-        this.#logger.info(`Connecté en tant que ${readyClient.user.tag}.`);
+        this.#logger.info(LogMessages.loggedInAs(readyClient.user.tag));
         this.#logger.info(
-          `DeepSeek : modèle=${this.#appConfig.deepseekModel} base=${this.#appConfig.deepseekBaseUrl} ` +
-            `réflexion=${this.#appConfig.deepseekThinking}` +
-            (this.#appConfig.deepseekThinking === 'enabled'
-              ? ` effort=${this.#appConfig.deepseekEffort}`
-              : ''),
+          LogMessages.deepseekSummary(
+            this.#appConfig.deepseekModel,
+            this.#appConfig.deepseekBaseUrl,
+            this.#appConfig.deepseekThinking,
+            this.#appConfig.deepseekThinking === Values.enabled
+              ? this.#appConfig.deepseekEffort
+              : undefined,
+          ),
         );
         this.#logger.info(
           memory.mode === 'mongo'
-            ? `Mémoire : MongoDB base=${this.#appConfig.mongodbDb}` +
-                (this.#appConfig.memoryTtlDays ? ` ttl=${this.#appConfig.memoryTtlDays}j` : '') +
-                '.'
-            : 'Mémoire : repli en RAM (perdue au redémarrage).',
+            ? LogMessages.memoryMongoSummary(
+                this.#appConfig.mongodbDb,
+                this.#appConfig.memoryTtlDays,
+              )
+            : LogMessages.memoryRamFallback,
         );
 
         await Bot.registerCommands(readyClient, this.#appConfig, this.#logger);

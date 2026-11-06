@@ -1,4 +1,5 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
+import { Crypto, Limits } from '../constants.ts';
 import type { EncryptedTurn } from '../models/crypto/encrypted-turn.ts';
 import type { Turn } from '../models/memory/turn.ts';
 
@@ -23,7 +24,7 @@ export class MemoryCipher {
     if (!hex) return null;
     if (!/^[0-9a-fA-F]{64}$/.test(hex)) {
       throw new Error(
-        'MEMORY_ENCRYPTION_KEY doit contenir 64 caractères hexadécimaux (32 octets).',
+        `MEMORY_ENCRYPTION_KEY doit contenir ${Limits.memoryEncryptionKeyHexLength} caractères hexadécimaux (${Limits.memoryEncryptionKeyBytes} octets).`,
       );
     }
     return Buffer.from(hex, 'hex');
@@ -70,7 +71,7 @@ export class MemoryCipher {
    */
   encryptTurn(role: Turn['role'], content: string, aad: string): EncryptedTurn {
     const iv = randomBytes(12);
-    const cipher = createCipheriv('aes-256-gcm', this.#key, iv);
+    const cipher = createCipheriv(Crypto.algorithm, this.#key, iv);
     cipher.setAAD(Buffer.from(aad, 'utf8'));
     const ciphertext = Buffer.concat([
       cipher.update(JSON.stringify({ role, content }), 'utf8'),
@@ -95,7 +96,7 @@ export class MemoryCipher {
    * @throws Quand l'authentification échoue.
    */
   decryptTurn(entry: EncryptedTurn, aad: string): Turn {
-    const decipher = createDecipheriv('aes-256-gcm', this.#key, Buffer.from(entry.iv, 'hex'));
+    const decipher = createDecipheriv(Crypto.algorithm, this.#key, Buffer.from(entry.iv, 'hex'));
     decipher.setAAD(Buffer.from(aad, 'utf8'));
     decipher.setAuthTag(Buffer.from(entry.authTag, 'hex'));
 

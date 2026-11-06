@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { Bot } from '../../src/bot/bot.ts';
+import { Messages } from '../../src/constants.ts';
 import { createFakeClient, createLogger } from '../helpers/fakes.ts';
 
 function delay(ms: number): Promise<void> {
@@ -8,7 +9,7 @@ function delay(ms: number): Promise<void> {
 }
 
 test('Bot.splitMessage gère les messages vides, courts et exactement à la limite', () => {
-  assert.deepEqual(Bot.splitMessage('   '), ['Le modèle a renvoyé une réponse vide.']);
+  assert.deepEqual(Bot.splitMessage('   '), [Messages.modelReturnedEmpty]);
   assert.deepEqual(Bot.splitMessage('  hello  '), ['hello']);
 
   const exact = 'a'.repeat(2000);

@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { ConfigLoader } from '../config/config-loader.ts';
+import { DeepSeekErrors, Messages, Values } from '../constants.ts';
 import type { DeepSeekClient } from '../models/deepseek/deepseek-client.ts';
 import type { DeepSeekClientSettings } from '../models/deepseek/deepseek-client-settings.ts';
 import type { DeepSeekSettings } from '../models/deepseek/deepseek-settings.ts';
@@ -48,27 +49,27 @@ export class DeepSeek {
     const apiError = error as { name?: string; status?: number } | null | undefined;
 
     if (apiError?.name === 'APIConnectionTimeoutError') {
-      return 'DeepSeek a mis trop de temps à répondre. Réessaie bientôt.';
+      return DeepSeekErrors.timeout;
     }
 
     switch (apiError?.status) {
       case 400:
-        return 'DeepSeek a rejeté la requête. Vérifie DEEPSEEK_MODEL et les autres réglages DeepSeek.';
+        return DeepSeekErrors.badRequest;
       case 401:
-        return 'DeepSeek a rejeté la clé API. Vérifie DEEPSEEK_API_KEY dans .env.';
+        return DeepSeekErrors.unauthorized;
       case 402:
-        return 'Le compte DeepSeek a un solde insuffisant.';
+        return DeepSeekErrors.insufficientBalance;
       case 403:
-        return 'DeepSeek a refusé la requête. Vérifie les permissions de la clé API.';
+        return DeepSeekErrors.forbidden;
       case 404:
-        return "Le point d'accès ou le modèle DeepSeek configuré est introuvable.";
+        return DeepSeekErrors.notFound;
       case 429:
-        return 'DeepSeek limite le débit des requêtes. Réessaie bientôt.';
+        return DeepSeekErrors.rateLimited;
       default:
         if ((apiError?.status ?? 0) >= 500) {
-          return 'DeepSeek est momentanément indisponible. Réessaie bientôt.';
+          return DeepSeekErrors.unavailable;
         }
-        return 'La requête DeepSeek a échoué. Consulte les journaux du bot et réessaie.';
+        return DeepSeekErrors.generic;
     }
   }
 
@@ -113,12 +114,12 @@ export class DeepSeek {
       params.temperature = this.#settings.deepseekTemperature;
     }
 
-    if (this.#settings.deepseekThinking === 'enabled') {
-      params.thinking = { type: 'enabled' };
+    if (this.#settings.deepseekThinking === Values.enabled) {
+      params.thinking = { type: Values.enabled };
       /** DeepSeek prend en charge output_config.effort sur sa route compatible Anthropic. */
       params.output_config = { effort: this.#settings.deepseekEffort };
     } else {
-      params.thinking = { type: 'disabled' };
+      params.thinking = { type: Values.disabled };
     }
 
     const response = await this.#client.messages.create(params);
@@ -128,7 +129,7 @@ export class DeepSeek {
       .join('\n')
       .trim();
 
-    return text || 'Le modèle a renvoyé une réponse vide.';
+    return text || Messages.modelReturnedEmpty;
   }
 }
 

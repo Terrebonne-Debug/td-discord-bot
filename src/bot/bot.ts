@@ -1,4 +1,5 @@
 import { ChannelType, Events } from 'discord.js';
+import { Discord, LogMessages, Messages, Version } from '../constants.ts';
 import { DeepSeek, defaultDeepSeek } from '../deepseek/deepseek.ts';
 import { GitHubIssues } from '../github/github-issues.ts';
 import { LoggerFactory } from '../logging/logger-factory.ts';
@@ -23,9 +24,6 @@ import { Commands } from './commands.ts';
 import { ConversationService } from './conversation/conversation-service.ts';
 import { MentionConversation } from './conversation/mention-conversation.ts';
 
-const DISCORD_MESSAGE_LIMIT = 2000;
-const TYPING_INTERVAL_MS = 8_000;
-
 /**
  * Façade du bot : branche les événements Discord sur le répartiteur de
  * commandes (patron Commande) et le service de conversation (patron
@@ -44,9 +42,9 @@ export class Bot {
    * @param {number} [limit=2000] - La taille maximale d'un morceau.
    * @returns {string[]} Les morceaux, jamais vides.
    */
-  static splitMessage(text: string, limit = DISCORD_MESSAGE_LIMIT): string[] {
+  static splitMessage(text: string, limit = Discord.messageLimit): string[] {
     const normalized = text.trim();
-    if (!normalized) return ['Le modèle a renvoyé une réponse vide.'];
+    if (!normalized) return [Messages.modelReturnedEmpty];
     if (normalized.length <= limit) return [normalized];
 
     const chunks: string[] = [];
@@ -76,7 +74,7 @@ export class Bot {
    */
   static startTyping(
     channel: TypingChannel | null | undefined,
-    intervalMs = TYPING_INTERVAL_MS,
+    intervalMs = Discord.typingIntervalMs,
   ): () => void {
     /** Lié pour que l'indicateur survive au rappel d'intervalle. */
     const sendTyping = channel?.sendTyping?.bind(channel);
@@ -115,7 +113,7 @@ export class Bot {
    */
   static describeRequestError(error: unknown): string {
     if ((error as { memoryUnavailable?: boolean } | null | undefined)?.memoryUnavailable) {
-      return 'La mémoire de conversation est momentanément indisponible. Réessaie bientôt.';
+      return Messages.memoryTemporarilyUnavailable;
     }
     return DeepSeek.describeError(error);
   }
@@ -136,7 +134,7 @@ export class Bot {
     fetchFn: typeof fetch = fetch,
   ): (title: string, body: string) => Promise<string> {
     return (title, body) => {
-      if (!settings.githubToken) throw new Error("GITHUB_TOKEN n'est pas défini.");
+      if (!settings.githubToken) throw new Error(Messages.githubTokenNotSet);
       const issues = new GitHubIssues(
         {
           token: settings.githubToken,
@@ -171,16 +169,14 @@ export class Bot {
       if (settings.discordGuildId) {
         const guild = await client.guilds.fetch(settings.discordGuildId);
         await guild.commands.set(commands);
-        logger.info(`${commands.length} commandes slash enregistrées dans ${guild.name}.`);
+        logger.info(LogMessages.commandsRegisteredInGuild(commands.length, guild.name));
       } else {
         /** Après la connexion, l'application existe toujours. */
         await client.application!.commands.set(commands);
-        logger.info(
-          `${commands.length} commandes slash globales enregistrées (elles peuvent mettre jusqu'à une heure à apparaître).`,
-        );
+        logger.info(LogMessages.commandsRegisteredGlobally(commands.length));
       }
     } catch (error) {
-      logger.error(`Impossible d'enregistrer les commandes slash : ${Errors.messageOf(error)}`);
+      logger.error(LogMessages.registerCommandsFailed(Errors.messageOf(error)));
     }
   }
 
@@ -210,7 +206,7 @@ export class Bot {
     memory,
     settings,
     ask = defaultDeepSeek.ask.bind(defaultDeepSeek),
-    buildInfo = { version: 'inconnue', commit: 'inconnu' },
+    buildInfo = { version: Version.unknownVersion, commit: Version.unknownCommit },
     createIssue = Bot.createIssueFor(settings),
     logger = new LoggerFactory().consoleLogger(),
   }: {
@@ -243,7 +239,7 @@ export class Bot {
       void this.handleMessage(message);
     });
     client.on(Events.Error, (error: Error) => {
-      this.#logger.error(`Erreur du client Discord : ${Errors.messageOf(error)}`);
+      this.#logger.error(LogMessages.discordClientError(Errors.messageOf(error)));
     });
   }
 

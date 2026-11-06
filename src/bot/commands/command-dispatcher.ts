@@ -1,3 +1,4 @@
+import { LogMessages } from '../../constants.ts';
 import type { InteractionLike } from '../../models/discord/interaction-like.ts';
 import type { ModalSubmitLike } from '../../models/discord/modal-submit-like.ts';
 import type { BotLogger } from '../../models/logging/bot-logger.ts';
@@ -44,7 +45,7 @@ export class CommandDispatcher {
         }
       } catch (error) {
         this.#logger.error(
-          `Échec du traitement de la soumission ${interaction.customId} : ${Errors.messageOf(error)}`,
+          `${LogMessages.handleSubmitFailed(interaction.customId)} : ${Errors.messageOf(error)}`,
         );
       }
       return;
@@ -61,7 +62,7 @@ export class CommandDispatcher {
       await command.handle(interaction);
     } catch (error) {
       this.#logger.error(
-        `Échec du traitement de /${interaction.commandName} : ${Errors.messageOf(error)}`,
+        `${LogMessages.handleSlashFailed(interaction.commandName)} : ${Errors.messageOf(error)}`,
       );
     }
   }

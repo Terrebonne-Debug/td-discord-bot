@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { Messages } from '../../src/constants.ts';
 import { DeepSeek } from '../../src/deepseek/deepseek.ts';
 import type { DeepSeekClient } from '../../src/models/deepseek/deepseek-client.ts';
 import type { DeepSeekSettings } from '../../src/models/deepseek/deepseek-settings.ts';
@@ -78,7 +79,7 @@ test('DeepSeek replie quand le modèle ne renvoie aucun texte', async () => {
 
   const reply = await deepseek.ask([], 'prompt');
 
-  assert.equal(reply, 'Le modèle a renvoyé une réponse vide.');
+  assert.equal(reply, Messages.modelReturnedEmpty);
 });
 
 test('DeepSeek.createClient construit un client Anthropic depuis les réglages', () => {

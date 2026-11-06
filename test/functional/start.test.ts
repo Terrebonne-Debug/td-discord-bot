@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { EventEmitter, once } from 'node:events';
 import test from 'node:test';
 import { Client, GatewayIntentBits, Partials } from 'discord.js';
+import { LogMessages } from '../../src/constants.ts';
 import type { MemoryConnectOptions } from '../../src/models/memory/memory-connect-options.ts';
 import type { StartupConfig } from '../../src/models/start/startup-config.ts';
 import { Launcher } from '../../src/startup/launcher.ts';
@@ -72,7 +73,10 @@ test("l'arrêt détruit le client et ferme la mémoire exactement une fois", asy
   assert.equal(code, 0);
   assert.equal(client.destroyed, true);
   assert.ok(memory.calls.some((call) => call.method === 'close'));
-  assert.deepEqual(logger.messages('info'), ['Reçu SIGINT ; arrêt en cours.', 'Arrêt terminé']);
+  assert.deepEqual(logger.messages('info'), [
+    LogMessages.shutdownReceived('SIGINT'),
+    LogMessages.shutdownComplete,
+  ]);
 
   processRef.emit('SIGTERM');
   await new Promise((resolve) => setImmediate(resolve));
@@ -130,11 +134,11 @@ test('Launcher.start connecte MongoDB, journalise les réglages et enregistre le
   assert.equal(typeof result.shutdown, 'function');
 
   assert.deepEqual(logger.messages('info'), [
-    'Démarrage du bot',
-    'Connecté en tant que TestBot#0001.',
-    'DeepSeek : modèle=deepseek-v4-flash base=http://127.0.0.1:9999 réflexion=enabled effort=max',
-    'Mémoire : MongoDB base=test-db ttl=7j.',
-    '5 commandes slash enregistrées dans Guild Name.',
+    LogMessages.botStartup,
+    LogMessages.loggedInAs('TestBot#0001'),
+    LogMessages.deepseekSummary('deepseek-v4-flash', 'http://127.0.0.1:9999', 'enabled', 'max'),
+    LogMessages.memoryMongoSummary('test-db', 7),
+    LogMessages.commandsRegisteredInGuild(5, 'Guild Name'),
   ]);
   assert.equal(client.globalCommands.length, 0);
   assert.equal(client.guildCommands.length, 5);
@@ -158,7 +162,7 @@ test("Launcher.start journalise la mémoire MongoDB sans TTL quand aucun n'est c
     processRef: makeProcess(),
   }).start();
 
-  assert.ok(logger.messages('info').includes('Mémoire : MongoDB base=test-db.'));
+  assert.ok(logger.messages('info').includes(LogMessages.memoryMongoSummary('test-db')));
 });
 
 test('Launcher.start journalise le repli en RAM quand MongoDB est indisponible', async () => {
@@ -180,10 +184,10 @@ test('Launcher.start journalise le repli en RAM quand MongoDB est indisponible',
   }).start();
 
   assert.deepEqual(logger.messages('info'), [
-    'Démarrage du bot',
-    'Connecté en tant que TestBot#0001.',
-    'DeepSeek : modèle=deepseek-v4-flash base=http://127.0.0.1:9999 réflexion=disabled',
-    'Mémoire : repli en RAM (perdue au redémarrage).',
+    LogMessages.botStartup,
+    LogMessages.loggedInAs('TestBot#0001'),
+    LogMessages.deepseekSummary('deepseek-v4-flash', 'http://127.0.0.1:9999', 'disabled'),
+    LogMessages.memoryRamFallback,
     "5 commandes slash globales enregistrées (elles peuvent mettre jusqu'à une heure à apparaître).",
   ]);
   assert.deepEqual(
@@ -213,5 +217,5 @@ test("Launcher.start nettoie et relève l'erreur quand la connexion Discord éch
 
   assert.equal(client.destroyed, true);
   assert.ok(memory.calls.some((call) => call.method === 'close'));
-  assert.deepEqual(logger.messages('info'), ['Démarrage du bot']);
+  assert.deepEqual(logger.messages('info'), [LogMessages.botStartup]);
 });

@@ -1,4 +1,5 @@
 import { MessageFlags } from 'discord.js';
+import { Commands, keepQuestionsUnder, LogFields, LogMessages, Messages } from '../../constants.ts';
 import type { BotSettings } from '../../models/bot/bot-settings.ts';
 import type { InteractionLike } from '../../models/discord/interaction-like.ts';
 import type { BotLogger } from '../../models/logging/bot-logger.ts';
@@ -60,7 +61,7 @@ export class SlashConversation implements ConversationStrategy {
     const prompt = this.#interaction.options.getString('prompt', true).trim();
     if (!prompt) {
       await this.#interaction.reply({
-        content: 'Pose ta question.',
+        content: Messages.pleaseAskQuestion,
         flags: MessageFlags.Ephemeral,
       });
       return null;
@@ -68,14 +69,14 @@ export class SlashConversation implements ConversationStrategy {
 
     if (prompt.length > this.#settings.maxPromptChars) {
       await this.#interaction.reply({
-        content: `Garde tes questions sous ${this.#settings.maxPromptChars} caractères.`,
+        content: keepQuestionsUnder(this.#settings.maxPromptChars),
         flags: MessageFlags.Ephemeral,
       });
       return null;
     }
 
-    this.#logger.debug('Question reçue', {
-      source: 'slash',
+    this.#logger.debug(LogMessages.questionReceived, {
+      source: LogFields.source,
       isDM: this.#isDM,
       promptChars: prompt.length,
     });
@@ -101,7 +102,7 @@ export class SlashConversation implements ConversationStrategy {
    */
   async reportBusy(): Promise<void> {
     await this.#interaction.editReply({
-      content: 'Je travaille encore sur la question précédente dans ce canal. Réessaie bientôt.',
+      content: Messages.busyConversation,
     });
   }
 
@@ -114,7 +115,7 @@ export class SlashConversation implements ConversationStrategy {
    */
   async sendReply(reply: string): Promise<void> {
     const chunks = Bot.splitMessage(reply);
-    this.#logger.debug('Envoi de la réponse', { chunks: chunks.length });
+    this.#logger.debug(LogMessages.replySending, { chunks: chunks.length });
     const [first, ...rest] = chunks;
 
     await this.#interaction.editReply({
@@ -151,7 +152,7 @@ export class SlashConversation implements ConversationStrategy {
    * @returns {string} L'identité de journalisation des erreurs.
    */
   errorLabel(): string {
-    return 'Échec du traitement de /q';
+    return LogMessages.handleSlashFailed(Commands.question);
   }
 
   /**

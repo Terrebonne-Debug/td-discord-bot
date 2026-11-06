@@ -1,3 +1,4 @@
+import { Commands as CommandNames } from '../../constants.ts';
 import type { BotSettings } from '../../models/bot/bot-settings.ts';
 import type { InteractionLike } from '../../models/discord/interaction-like.ts';
 import type { BotLogger } from '../../models/logging/bot-logger.ts';
@@ -12,7 +13,7 @@ import type { Command } from './command.ts';
  */
 export class QuestionCommand implements Command {
   /** @type {readonly string[]} Le nom de la commande. */
-  readonly names = ['q'] as const;
+  readonly names = [CommandNames.question] as const;
 
   /** @type {ConversationService} L'algorithme de conversation partagé. */
   #conversations: ConversationService;
