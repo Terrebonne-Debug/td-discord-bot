@@ -73,9 +73,7 @@ export class DeepSeek {
     }
   }
 
-  /** @type {DeepSeekClient} Le client SDK sous-jacent. */
   #client: DeepSeekClient;
-  /** @type {DeepSeekSettings} Les réglages de génération. */
   #settings: DeepSeekSettings;
 
   /**

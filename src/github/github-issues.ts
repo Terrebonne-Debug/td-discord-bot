@@ -9,9 +9,7 @@ import type { CreateIssueOptions } from '../models/github/create-issue-options.t
  * @class GitHubIssues
  */
 export class GitHubIssues {
-  /** @type {CreateIssueOptions} Les options de création. */
   #options: CreateIssueOptions;
-  /** @type {typeof fetch} La fonction fetch à utiliser. */
   #fetchFn: typeof fetch;
 
   /**

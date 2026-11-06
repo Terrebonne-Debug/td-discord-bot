@@ -9,7 +9,6 @@ import type { ModalSubmitLike } from '../../models/discord/modal-submit-like.ts'
  * @interface
  */
 export interface Command {
-  /** @type {readonly string[]} Les noms de la commande, alias compris. */
   readonly names: readonly string[];
   /**
    * Exécute l'interaction de la commande.

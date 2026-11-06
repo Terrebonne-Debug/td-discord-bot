@@ -21,8 +21,7 @@ import type { Turn } from '../models/memory/turn.ts';
  * @class MemoryStore
  */
 export class MemoryStore implements ConversationMemory {
-  /** @type {string} La collection des mémoires de canaux. */
-  static #channelCollection = Memory.channelCollection;
+  static #channelCollection: string = Memory.channelCollection;
 
   /**
    * Reconnaît un tour valide dans une entrée stockée.

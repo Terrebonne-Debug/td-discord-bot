@@ -15,11 +15,9 @@ import { Logging } from '../constants.ts';
  * @class ArchiveSweeper
  */
 export class ArchiveSweeper {
-  /** @type {RegExp} Fichiers produits par la rotation : bot-AAAA-MM-JJ.log[.n]. */
-  static #filenamePattern = /^bot-\d{4}-\d{2}-\d{2}\.log(\.\d+)?$/;
+  static #filenamePattern: RegExp = /^bot-\d{4}-\d{2}-\d{2}\.log(\.\d+)?$/;
 
-  /** @type {number} L'intervalle quotidien de balayage, en millisecondes. */
-  static #sweepIntervalMs = Logging.sweepIntervalMs;
+  static #sweepIntervalMs: number = Logging.sweepIntervalMs;
 
   /**
    * Nom du fichier journal actif pour une date donnée (yyyy-MM-dd).
@@ -70,9 +68,7 @@ export class ArchiveSweeper {
     await unlink(filePath);
   }
 
-  /** @type {string} Le dossier des journaux. */
   #logDir: string;
-  /** @type {number} La rétention en jours. */
   #retentionDays: number;
 
   /**

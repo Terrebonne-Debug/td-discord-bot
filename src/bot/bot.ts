@@ -180,15 +180,10 @@ export class Bot {
     }
   }
 
-  /** @type {BotClient} Le client Discord. */
   #client: BotClient;
-  /** @type {BotSettings} Les réglages du bot. */
   #settings: BotSettings;
-  /** @type {BotLogger} Le journal du bot. */
   #logger: BotLogger;
-  /** @type {ConversationService} L'algorithme de conversation partagé. */
   #conversations: ConversationService;
-  /** @type {CommandDispatcher} Le répartiteur de commandes. */
   #dispatcher: CommandDispatcher;
 
   /**

@@ -15,14 +15,10 @@ import type { ConversationStrategy } from './conversation-strategy.ts';
  * @class ConversationService
  */
 export class ConversationService {
-  /** @type {ConversationMemory} La mémoire des canaux. */
   #memory: ConversationMemory;
-  /** @type {(history: Turn[], prompt: string) => Promise<string>} Le modèle. */
   #ask: (history: Turn[], prompt: string) => Promise<string>;
-  /** @type {BotLogger} Le journal du bot. */
   #logger: BotLogger;
-  /** @type {Set<string>} Les conversations en cours de traitement. */
-  #busyConversations = new Set<string>();
+  #busyConversations: Set<string> = new Set<string>();
 
   /**
    * @constructor

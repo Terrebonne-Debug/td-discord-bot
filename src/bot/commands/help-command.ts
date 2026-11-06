@@ -10,8 +10,7 @@ import type { Command } from './command.ts';
  * @class HelpCommand
  */
 export class HelpCommand implements Command {
-  /** @type {readonly string[]} Les deux noms, alias l'un de l'autre. */
-  readonly names = [CommandNames.help, CommandNames.helpAlias] as const;
+  readonly names: readonly string[] = [CommandNames.help, CommandNames.helpAlias];
 
   /**
    * Répond avec la liste des commandes disponibles.

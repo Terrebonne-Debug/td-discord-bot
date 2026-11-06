@@ -16,9 +16,7 @@ function defaultRunGit(args: string[], cwd: string): string {
  * @class BuildInfoReader
  */
 export class BuildInfoReader {
-  /** @type {string} Le répertoire de travail à inspecter. */
   #cwd: string;
-  /** @type {(args: string[], cwd: string) => string} La commande git injectée. */
   #runGit: (args: string[], cwd: string) => string;
 
   /**

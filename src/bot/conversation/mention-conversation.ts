@@ -12,15 +12,10 @@ import type { ConversationStrategy } from './conversation-strategy.ts';
  * @class MentionConversation
  */
 export class MentionConversation implements ConversationStrategy {
-  /** @type {MessageLike} Le message mentionnant le bot. */
   #message: MessageLike;
-  /** @type {string | null} L'identifiant du bot, si son utilisateur est en cache. */
   #botUserId: string | null;
-  /** @type {BotSettings} Les réglages du bot. */
   #settings: BotSettings;
-  /** @type {BotLogger} Le journal du bot. */
   #logger: BotLogger;
-  /** @type {boolean} Vrai quand le message vient d'un message privé. */
   #isDM: boolean;
 
   /**

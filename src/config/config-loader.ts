@@ -22,17 +22,14 @@ import type { ThinkingMode } from '../models/config/thinking-mode.ts';
  * @class ConfigLoader
  */
 export class ConfigLoader {
-  /** @type {Set<string>} Les modes de réflexion acceptés. */
-  static #thinkingModes = new Set<string>([Values.enabled, Values.disabled]);
-  /** @type {Set<string>} Les niveaux d'effort acceptés. */
-  static #effortLevels = new Set<string>([
+  static #thinkingModes: Set<string> = new Set<string>([Values.enabled, Values.disabled]);
+  static #effortLevels: Set<string> = new Set<string>([
     Defaults.effort,
     Values.effortLow,
     Values.effortMedium,
     Values.effortHigh,
   ]);
-  /** @type {Set<string>} Les niveaux de journalisation acceptés. */
-  static #logLevels = new Set<string>([
+  static #logLevels: Set<string> = new Set<string>([
     Defaults.logLevel,
     Values.logDebug,
     Values.logWarn,
