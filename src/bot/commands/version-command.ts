@@ -1,3 +1,4 @@
+import { Commands as CommandNames, versionReply } from '../../constants.ts';
 import type { InteractionLike } from '../../models/discord/interaction-like.ts';
 import type { BuildInfo } from '../../models/version/build-info.ts';
 import type { Command } from './command.ts';
@@ -9,7 +10,7 @@ import type { Command } from './command.ts';
  */
 export class VersionCommand implements Command {
   /** @type {readonly string[]} Le nom de la commande. */
-  readonly names = ['version'] as const;
+  readonly names = [CommandNames.version] as const;
 
   /** @type {BuildInfo} La version et le commit de cette compilation. */
   #buildInfo: BuildInfo;
@@ -31,7 +32,7 @@ export class VersionCommand implements Command {
    */
   async handle(interaction: InteractionLike): Promise<void> {
     await interaction.reply({
-      content: `**td-discord-bot ${this.#buildInfo.version}**\nCommit : \`${this.#buildInfo.commit}\``,
+      content: versionReply(this.#buildInfo.version, this.#buildInfo.commit),
       allowedMentions: { parse: [] },
     });
   }

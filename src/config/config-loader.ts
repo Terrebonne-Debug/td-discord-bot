@@ -1,4 +1,14 @@
 import 'dotenv/config';
+import {
+  configBoolean,
+  configMissing,
+  configNumberRange,
+  configPlaceholder,
+  configPositiveInt,
+  Defaults,
+  EnvVars,
+  Values,
+} from '../constants.ts';
 import type { Config } from '../models/config/config.ts';
 import type { EffortLevel } from '../models/config/effort-level.ts';
 import type { LogLevel } from '../models/config/log-level.ts';
@@ -13,11 +23,21 @@ import type { ThinkingMode } from '../models/config/thinking-mode.ts';
  */
 export class ConfigLoader {
   /** @type {Set<string>} Les modes de réflexion acceptés. */
-  static #thinkingModes = new Set<string>(['enabled', 'disabled']);
+  static #thinkingModes = new Set<string>([Values.enabled, Values.disabled]);
   /** @type {Set<string>} Les niveaux d'effort acceptés. */
-  static #effortLevels = new Set<string>(['low', 'medium', 'high', 'max']);
+  static #effortLevels = new Set<string>([
+    Defaults.effort,
+    Values.effortLow,
+    Values.effortMedium,
+    Values.effortHigh,
+  ]);
   /** @type {Set<string>} Les niveaux de journalisation acceptés. */
-  static #logLevels = new Set<string>(['debug', 'info', 'warn', 'error']);
+  static #logLevels = new Set<string>([
+    Defaults.logLevel,
+    Values.logDebug,
+    Values.logWarn,
+    Values.logError,
+  ]);
 
   /**
    * Charge la configuration depuis l'environnement courant (ou donné). Le
@@ -43,7 +63,11 @@ export class ConfigLoader {
    * @throws Quand une valeur requise manque ou est invalide.
    */
   parse(env: NodeJS.ProcessEnv = process.env): Readonly<Config> {
-    const thinkingRaw = this.#optional(env, 'DEEPSEEK_THINKING', 'enabled').toLowerCase();
+    const thinkingRaw = this.#optional(
+      env,
+      EnvVars.deepseekThinking,
+      Defaults.thinking,
+    ).toLowerCase();
     if (!ConfigLoader.#thinkingModes.has(thinkingRaw)) {
       throw new Error(
         `DEEPSEEK_THINKING doit valoir « enabled » ou « disabled » (reçu : ${thinkingRaw}).`,
@@ -51,7 +75,7 @@ export class ConfigLoader {
     }
     const thinking = thinkingRaw as ThinkingMode;
 
-    const effortRaw = this.#optional(env, 'DEEPSEEK_EFFORT', 'max').toLowerCase();
+    const effortRaw = this.#optional(env, EnvVars.deepseekEffort, Defaults.effort).toLowerCase();
     if (!ConfigLoader.#effortLevels.has(effortRaw)) {
       throw new Error(
         `DEEPSEEK_EFFORT doit être l'un de ${[...ConfigLoader.#effortLevels].join(', ')} (reçu : ${effortRaw}).`,
@@ -59,7 +83,7 @@ export class ConfigLoader {
     }
     const effort = effortRaw as EffortLevel;
 
-    const logLevelRaw = this.#optional(env, 'LOG_LEVEL', 'info').toLowerCase();
+    const logLevelRaw = this.#optional(env, EnvVars.logLevel, Defaults.logLevel).toLowerCase();
     if (!ConfigLoader.#logLevels.has(logLevelRaw)) {
       throw new Error(
         `LOG_LEVEL doit être l'un de ${[...ConfigLoader.#logLevels].join(', ')} (reçu : ${logLevelRaw}).`,
@@ -68,57 +92,54 @@ export class ConfigLoader {
     const logLevel = logLevelRaw as LogLevel;
 
     return Object.freeze({
-      discordToken: this.#required(env, 'DISCORD_TOKEN'),
-      discordGuildId: this.#optional(env, 'DISCORD_GUILD_ID', '') || null,
+      discordToken: this.#required(env, EnvVars.discordToken),
+      discordGuildId: this.#optional(env, EnvVars.discordGuildId, '') || null,
 
-      deepseekApiKey: this.#required(env, 'DEEPSEEK_API_KEY'),
+      deepseekApiKey: this.#required(env, EnvVars.deepseekApiKey),
       deepseekBaseUrl: this.#optional(
         env,
-        'DEEPSEEK_BASE_URL',
-        'https://api.deepseek.com/anthropic',
+        EnvVars.deepseekBaseUrl,
+        Defaults.deepseekBaseUrl,
       ).replace(/\/+$/, ''),
-      deepseekModel: this.#optional(env, 'DEEPSEEK_MODEL', 'deepseek-v4-flash'),
+      deepseekModel: this.#optional(env, EnvVars.deepseekModel, Defaults.deepseekModel),
       deepseekThinking: thinking,
       deepseekEffort: effort,
-      deepseekMaxTokens: this.#positiveInt(env, 'DEEPSEEK_MAX_TOKENS', 8192),
-      deepseekTemperature: this.#optionalNumber(env, 'DEEPSEEK_TEMPERATURE', 0, 2),
-      deepseekTimeoutMs: this.#positiveInt(env, 'DEEPSEEK_TIMEOUT_MS', 180_000),
+      deepseekMaxTokens: this.#positiveInt(env, EnvVars.deepseekMaxTokens, Defaults.maxTokens),
+      deepseekTemperature: this.#optionalNumber(env, EnvVars.deepseekTemperature, 0, 2),
+      deepseekTimeoutMs: this.#positiveInt(env, EnvVars.deepseekTimeoutMs, Defaults.timeoutMs),
 
-      systemPrompt: this.#optional(
-        env,
-        'SYSTEM_PROMPT',
-        "Tu es un bot Discord utile propulsé par DeepSeek. Réponds clairement et de façon concise, avec du Markdown qui s'affiche bien dans Discord.",
-      ),
-      maxHistoryTurns: this.#positiveInt(env, 'MAX_HISTORY_TURNS', 10),
-      maxPromptChars: this.#positiveInt(env, 'MAX_PROMPT_CHARS', 4000),
+      systemPrompt: this.#optional(env, EnvVars.systemPrompt, Defaults.systemPrompt),
+      maxHistoryTurns: this.#positiveInt(env, EnvVars.maxHistoryTurns, Defaults.maxHistoryTurns),
+      maxPromptChars: this.#positiveInt(env, EnvVars.maxPromptChars, Defaults.maxPromptChars),
 
       /**
        * Mémoire de conversation. Sans MongoDB joignable, le bot replie sur
        * une mémoire en RAM (perdue au redémarrage).
        */
-      mongodbUri: this.#optional(env, 'MONGODB_URI', '') || null,
-      mongodbDb: this.#optional(env, 'MONGODB_DB', 'td-discord-bot'),
-      mongodbTimeoutMs: this.#positiveInt(env, 'MONGODB_TIMEOUT_MS', 5000),
+      mongodbUri: this.#optional(env, EnvVars.mongodbUri, '') || null,
+      mongodbDb: this.#optional(env, EnvVars.mongodbDb, Defaults.mongodbDb),
+      mongodbTimeoutMs: this.#positiveInt(env, EnvVars.mongodbTimeoutMs, Defaults.mongodbTimeoutMs),
       /**
        * L'historique des canaux expire toujours : 30 jours après sa dernière
        * mise à jour par défaut, MEMORY_TTL_DAYS remplace.
        */
-      memoryTtlDays: this.#optionalPositiveInt(env, 'MEMORY_TTL_DAYS') ?? 30,
+      memoryTtlDays:
+        this.#optionalPositiveInt(env, EnvVars.memoryTtlDays) ?? Defaults.memoryTtlDays,
       /** Validée par MemoryCipher.parseKey au démarrage. */
-      memoryEncryptionKey: this.#optional(env, 'MEMORY_ENCRYPTION_KEY', '') || null,
+      memoryEncryptionKey: this.#optional(env, EnvVars.memoryEncryptionKey, '') || null,
 
       logLevel,
-      logDir: this.#optional(env, 'LOG_DIR', './logs'),
-      logFileEnabled: this.#optionalBoolean(env, 'LOG_FILE_ENABLED', true),
-      logMaxSizeMb: this.#positiveInt(env, 'LOG_MAX_SIZE_MB', 10),
-      logRetentionDays: this.#positiveInt(env, 'LOG_RETENTION_DAYS', 14),
+      logDir: this.#optional(env, EnvVars.logDir, Defaults.logDir),
+      logFileEnabled: this.#optionalBoolean(env, EnvVars.logFileEnabled, Defaults.logFileEnabled),
+      logMaxSizeMb: this.#positiveInt(env, EnvVars.logMaxSizeMb, Defaults.logMaxSizeMb),
+      logRetentionDays: this.#positiveInt(env, EnvVars.logRetentionDays, Defaults.logRetentionDays),
 
       /**
        * Création d'issues GitHub (/feature-request). Sans jeton, la commande
        * répond qu'elle n'est pas configurée.
        */
-      githubToken: this.#optional(env, 'GITHUB_TOKEN', '') || null,
-      githubRepository: this.#optional(env, 'GITHUB_REPOSITORY', 'Terrebonne-Debug/td-discord-bot'),
+      githubToken: this.#optional(env, EnvVars.githubToken, '') || null,
+      githubRepository: this.#optional(env, EnvVars.githubRepository, Defaults.githubRepository),
     });
   }
 
@@ -134,10 +155,10 @@ export class ConfigLoader {
   #required(env: NodeJS.ProcessEnv, name: string): string {
     const value = env[name]?.trim();
     if (!value) {
-      throw new Error(`Variable d'environnement requise manquante : ${name}. Voir .env.example.`);
+      throw new Error(configMissing(name));
     }
     if (value.startsWith('your_')) {
-      throw new Error(`${name} a encore sa valeur d'exemple. Définis une vraie valeur dans .env.`);
+      throw new Error(configPlaceholder(name));
     }
     return value;
   }
@@ -170,7 +191,7 @@ export class ConfigLoader {
     const raw = this.#optional(env, name, String(fallback));
     const value = Number(raw);
     if (!Number.isInteger(value) || value <= 0) {
-      throw new Error(`${name} doit être un entier positif (reçu : ${raw}).`);
+      throw new Error(configPositiveInt(name, raw));
     }
     return value;
   }
@@ -192,7 +213,7 @@ export class ConfigLoader {
 
     const value = Number(raw);
     if (!Number.isFinite(value) || value < min || value > max) {
-      throw new Error(`${name} doit être un nombre de ${min} à ${max} (reçu : ${raw}).`);
+      throw new Error(configNumberRange(name, min, max, raw));
     }
     return value;
   }
@@ -212,7 +233,7 @@ export class ConfigLoader {
 
     const value = Number(raw);
     if (!Number.isInteger(value) || value <= 0) {
-      throw new Error(`${name} doit être un entier positif (reçu : ${raw}).`);
+      throw new Error(configPositiveInt(name, raw));
     }
     return value;
   }
@@ -231,6 +252,6 @@ export class ConfigLoader {
     const raw = this.#optional(env, name, String(fallback)).toLowerCase();
     if (raw === 'true') return true;
     if (raw === 'false') return false;
-    throw new Error(`${name} doit valoir « true » ou « false » (reçu : ${raw}).`);
+    throw new Error(configBoolean(name, raw));
   }
 }

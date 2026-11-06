@@ -1,4 +1,5 @@
 import { ChannelType } from 'discord.js';
+import { keepQuestionsUnder, LogFields, LogMessages, Messages } from '../../constants.ts';
 import type { BotSettings } from '../../models/bot/bot-settings.ts';
 import type { MessageLike } from '../../models/discord/message-like.ts';
 import type { BotLogger } from '../../models/logging/bot-logger.ts';
@@ -68,7 +69,7 @@ export class MentionConversation implements ConversationStrategy {
     const prompt = Bot.stripBotMention(this.#message.content, this.#botUserId);
     if (!prompt) {
       await this.#message.reply({
-        content: 'Salut ! Mentionne-moi avec une question, ou utilise `/q`.',
+        content: Messages.mentionPrompt,
         allowedMentions: { repliedUser: false },
       });
       return null;
@@ -76,14 +77,14 @@ export class MentionConversation implements ConversationStrategy {
 
     if (prompt.length > this.#settings.maxPromptChars) {
       await this.#message.reply({
-        content: `Garde tes questions sous ${this.#settings.maxPromptChars} caractères.`,
+        content: keepQuestionsUnder(this.#settings.maxPromptChars),
         allowedMentions: { repliedUser: false },
       });
       return null;
     }
 
-    this.#logger.debug('Message reçu', {
-      source: 'message',
+    this.#logger.debug(LogMessages.messageReceived, {
+      source: LogFields.source,
       isDM: this.#isDM,
       promptChars: prompt.length,
     });
@@ -108,7 +109,7 @@ export class MentionConversation implements ConversationStrategy {
    */
   async reportBusy(): Promise<void> {
     await this.#message.reply({
-      content: 'Je travaille encore sur la question précédente dans ce canal. Réessaie bientôt.',
+      content: Messages.busyConversation,
       allowedMentions: { repliedUser: false },
     });
   }
@@ -122,7 +123,7 @@ export class MentionConversation implements ConversationStrategy {
    */
   async sendReply(reply: string): Promise<void> {
     const chunks = Bot.splitMessage(reply);
-    this.#logger.debug('Envoi de la réponse', { chunks: chunks.length });
+    this.#logger.debug(LogMessages.replySending, { chunks: chunks.length });
 
     for (const [index, chunk] of chunks.entries()) {
       const payload = {
@@ -159,7 +160,7 @@ export class MentionConversation implements ConversationStrategy {
    * @returns {string} L'identité de journalisation des erreurs.
    */
   errorLabel(): string {
-    return 'Échec du traitement du message';
+    return LogMessages.handleMessageFailed;
   }
 
   /**

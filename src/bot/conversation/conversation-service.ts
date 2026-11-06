@@ -1,3 +1,4 @@
+import { LogMessages } from '../../constants.ts';
 import { MemoryUnavailableError } from '../../errors/memory-unavailable-error.ts';
 import type { BotLogger } from '../../models/logging/bot-logger.ts';
 import type { ConversationMemory } from '../../models/memory/conversation-memory.ts';
@@ -88,7 +89,7 @@ export class ConversationService {
     const log = this.#logger.child(memoryKey === null ? {} : { key: memoryKey });
 
     if (this.#busyConversations.has(lockKey)) {
-      log.warn('Conversation occupée : requête ignorée', { lockKey });
+      log.warn(LogMessages.busyIgnored, { lockKey });
       return false;
     }
 
@@ -102,11 +103,11 @@ export class ConversationService {
           throw new MemoryUnavailableError(error);
         }
       }
-      log.debug('Historique chargé', { turns: history.length });
+      log.debug(LogMessages.historyLoaded, { turns: history.length });
 
       const startedAt = performance.now();
       const reply = await this.#ask(history, prompt);
-      log.info('Réponse du modèle reçue', {
+      log.info(LogMessages.modelReplyReceived, {
         ms: Math.round(performance.now() - startedAt),
         chars: reply.length,
       });
@@ -115,7 +116,7 @@ export class ConversationService {
         try {
           await this.#memory.appendTurn(memoryKey, prompt, reply);
         } catch (error) {
-          log.warn(`Impossible d'enregistrer le tour de conversation : ${Errors.messageOf(error)}`);
+          log.warn(LogMessages.turnNotSaved(Errors.messageOf(error)));
         }
       }
 

@@ -3,6 +3,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { Version } from '../../src/constants.ts';
 import { BuildInfoReader } from '../../src/version/build-info-reader.ts';
 
 const runGitOk = (args: string[], _cwd: string): string => {
@@ -26,13 +27,13 @@ test('BuildInfoReader dégrade en inconnu sans git', () => {
   const info = new BuildInfoReader({ cwd: process.cwd(), runGit: runGitBroken }).read();
 
   assert.equal(info.version, '1.0.0');
-  assert.equal(info.commit, 'inconnu');
+  assert.equal(info.commit, Version.unknownCommit);
 });
 
 test('BuildInfoReader dégrade en inconnu sans package.json', () => {
   const info = new BuildInfoReader({ cwd: '/chemin/inexistant', runGit: runGitOk }).read();
 
-  assert.equal(info.version, 'inconnue');
+  assert.equal(info.version, Version.unknownVersion);
   assert.equal(info.commit, 'abc1234');
 });
 
@@ -43,7 +44,7 @@ test("BuildInfoReader dégrade en inconnu quand package.json n'a pas de version"
 
     const info = new BuildInfoReader({ cwd: dir, runGit: runGitOk }).read();
 
-    assert.equal(info.version, 'inconnue');
+    assert.equal(info.version, Version.unknownVersion);
     assert.equal(info.commit, 'abc1234');
   } finally {
     await rm(dir, { recursive: true, force: true });

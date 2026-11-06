@@ -1,4 +1,11 @@
 import { MessageFlags } from 'discord.js';
+import {
+  Commands as CommandNames,
+  featureRequestCreated,
+  Limits,
+  LogMessages,
+  Messages,
+} from '../../constants.ts';
 import type { BotSettings } from '../../models/bot/bot-settings.ts';
 import type { InteractionLike } from '../../models/discord/interaction-like.ts';
 import type { ModalSubmitLike } from '../../models/discord/modal-submit-like.ts';
@@ -15,7 +22,7 @@ import type { Command } from './command.ts';
  */
 export class FeatureRequestCommand implements Command {
   /** @type {readonly string[]} Le nom de la commande. */
-  readonly names = ['feature-request'] as const;
+  readonly names = [CommandNames.featureRequest] as const;
 
   /** @type {BotSettings} Les réglages du bot (jeton et dépôt GitHub). */
   #settings: BotSettings;
@@ -54,7 +61,7 @@ export class FeatureRequestCommand implements Command {
   async handle(interaction: InteractionLike): Promise<void> {
     if (!this.#settings.githubToken) {
       await interaction.reply({
-        content: 'Les demandes de fonctionnalités ne sont pas configurées (GITHUB_TOKEN manquant).',
+        content: Messages.featureRequestNotConfigured,
         flags: MessageFlags.Ephemeral,
       });
       return;
@@ -71,13 +78,13 @@ export class FeatureRequestCommand implements Command {
    * @returns {Promise<boolean>} Vrai si la soumission a été prise en charge.
    */
   async handleSubmit(modal: ModalSubmitLike): Promise<boolean> {
-    if (modal.customId !== 'feature-request') return false;
+    if (modal.customId !== CommandNames.featureRequest) return false;
 
-    const title = modal.fields.getTextInputValue('titre').trim();
-    const description = modal.fields.getTextInputValue('description').trim();
+    const title = modal.fields.getTextInputValue(CommandNames.titleField).trim();
+    const description = modal.fields.getTextInputValue(CommandNames.descriptionField).trim();
     if (!title || !description) {
       await modal.reply({
-        content: 'Le titre et la description sont requis.',
+        content: Messages.featureRequestTitleAndDescriptionRequired,
         flags: MessageFlags.Ephemeral,
       });
       return true;
@@ -87,19 +94,22 @@ export class FeatureRequestCommand implements Command {
 
     try {
       /** GitHub limite les titres à 256 caractères ; on tronque largement en deçà. */
-      const safeTitle = title.length > 200 ? `${title.slice(0, 199)}…` : title;
+      const safeTitle =
+        title.length > Limits.featureRequestTitle
+          ? `${title.slice(0, Limits.truncatedTitleLength)}…`
+          : title;
       const body = `**Demande**\n\n${description}\n\n---\nDemandé depuis Discord par ${modal.user.username}.`;
       const url = await this.#createIssue(safeTitle, body);
-      this.#logger.info('Issue de demande créée', { url, chars: description.length });
+      this.#logger.info(LogMessages.issueCreated, { url, chars: description.length });
       await modal.editReply({
-        content: `Demande créée : ${url}`,
+        content: featureRequestCreated(url),
         allowedMentions: { parse: [] },
       });
     } catch (error) {
-      this.#logger.error(`Impossible de créer l'issue de demande : ${Errors.messageOf(error)}`);
+      this.#logger.error(LogMessages.featureRequestIssueFailed(Errors.messageOf(error)));
       await modal
         .editReply({
-          content: 'Impossible de créer la demande pour le moment. Réessaie plus tard.',
+          content: Messages.featureRequestCreationFailed,
         })
         .catch(() => {});
     }

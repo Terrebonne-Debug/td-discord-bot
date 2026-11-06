@@ -5,31 +5,32 @@ import {
   TextInputBuilder,
   TextInputStyle,
 } from 'discord.js';
+import { Commands as CommandNames, Limits } from '../constants.ts';
 
 /** Source unique des commandes slash : enregistrement et aide. */
 const COMMANDS: Array<{ name: string; description: string; help: string }> = [
   {
-    name: 'q',
+    name: CommandNames.question,
     description: 'Pose une question',
     help: '`/q <question>` — pose une question au bot.',
   },
   {
-    name: 'version',
+    name: CommandNames.version,
     description: 'Affiche la version du bot',
     help: '`/version` — affiche le numéro de version et le dernier commit.',
   },
   {
-    name: 'aide',
+    name: CommandNames.help,
     description: 'Liste les commandes disponibles',
     help: '`/aide` (alias : `/help`) — affiche cette liste.',
   },
   {
-    name: 'help',
+    name: CommandNames.helpAlias,
     description: 'Liste les commandes disponibles (alias de /aide)',
     help: '`/help` (alias : `/aide`) — affiche cette liste.',
   },
   {
-    name: 'feature-request',
+    name: CommandNames.featureRequest,
     description: 'Crée une issue GitHub de suggestion',
     help: '`/feature-request` — ouvre un formulaire (titre + description) pour créer une issue GitHub.',
   },
@@ -55,7 +56,7 @@ export class Commands {
         .setName(command.name)
         .setDescription(command.description);
 
-      if (command.name === 'q') {
+      if (command.name === CommandNames.question) {
         builder.addStringOption((option) =>
           option
             .setName('prompt')
@@ -79,7 +80,7 @@ export class Commands {
     const lines = COMMANDS.filter((command) => command.name !== 'help').map(
       (command) => `- ${command.help}`,
     );
-    return ['**Commandes disponibles**', ...lines].join('\n');
+    return [CommandNames.helpIntro, ...lines].join('\n');
   }
 
   /**
@@ -91,26 +92,26 @@ export class Commands {
    */
   static featureRequestModal(): ModalBuilder {
     return new ModalBuilder()
-      .setCustomId('feature-request')
-      .setTitle('Demande de fonctionnalité')
+      .setCustomId(CommandNames.featureRequest)
+      .setTitle(CommandNames.featureRequestModalTitle)
       .addComponents(
         new ActionRowBuilder<TextInputBuilder>().addComponents(
           new TextInputBuilder()
-            .setCustomId('titre')
+            .setCustomId(CommandNames.titleField)
             .setLabel('Titre')
             .setStyle(TextInputStyle.Short)
             .setPlaceholder('Résumé court de la suggestion')
             .setRequired(true)
-            .setMaxLength(200),
+            .setMaxLength(Limits.featureRequestTitle),
         ),
         new ActionRowBuilder<TextInputBuilder>().addComponents(
           new TextInputBuilder()
-            .setCustomId('description')
+            .setCustomId(CommandNames.descriptionField)
             .setLabel('Description')
             .setStyle(TextInputStyle.Paragraph)
             .setPlaceholder('Décris la fonctionnalité souhaitée')
             .setRequired(true)
-            .setMaxLength(4000),
+            .setMaxLength(Limits.featureRequestDescription),
         ),
       );
   }

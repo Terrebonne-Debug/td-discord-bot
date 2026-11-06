@@ -1,3 +1,4 @@
+import { Commands as CommandNames } from '../../constants.ts';
 import type { InteractionLike } from '../../models/discord/interaction-like.ts';
 import { Commands } from '../commands.ts';
 import type { Command } from './command.ts';
@@ -10,7 +11,7 @@ import type { Command } from './command.ts';
  */
 export class HelpCommand implements Command {
   /** @type {readonly string[]} Les deux noms, alias l'un de l'autre. */
-  readonly names = ['aide', 'help'] as const;
+  readonly names = [CommandNames.help, CommandNames.helpAlias] as const;
 
   /**
    * Répond avec la liste des commandes disponibles.

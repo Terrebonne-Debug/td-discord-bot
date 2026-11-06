@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { Version } from '../constants.ts';
 import type { BuildInfo } from '../models/version/build-info.ts';
 
 function defaultRunGit(args: string[], cwd: string): string {
@@ -43,17 +44,17 @@ export class BuildInfoReader {
    * @returns {BuildInfo} La version et le commit de cette compilation.
    */
   read(): BuildInfo {
-    let version = 'inconnue';
+    let version: string = Version.unknownVersion;
     try {
       const packageJson = JSON.parse(
-        readFileSync(path.join(this.#cwd, 'package.json'), 'utf8'),
+        readFileSync(path.join(this.#cwd, Version.packageFilename), 'utf8'),
       ) as { version?: string };
-      version = packageJson.version ?? 'inconnue';
+      version = packageJson.version ?? Version.unknownVersion;
     } catch {
       /** Déploiement sans package.json : la version reste inconnue. */
     }
 
-    let commit = 'inconnu';
+    let commit: string = Version.unknownCommit;
     try {
       commit = this.#runGit(['rev-parse', '--short', 'HEAD'], this.#cwd).trim();
     } catch {

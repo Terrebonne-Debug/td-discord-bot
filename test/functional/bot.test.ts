@@ -3,6 +3,7 @@ import { EventEmitter } from 'node:events';
 import test from 'node:test';
 import { ChannelType, Events, MessageFlags } from 'discord.js';
 import { Bot } from '../../src/bot/bot.ts';
+import { Messages } from '../../src/constants.ts';
 import type { BotSettings } from '../../src/models/bot/bot-settings.ts';
 import type { Turn } from '../../src/models/memory/turn.ts';
 import type { FakeClient, FakeMemory } from '../helpers/fakes.ts';
@@ -291,7 +292,10 @@ test('une soumission feature-request rejette un titre ou une description vide', 
 
   for (const modal of [emptyTitle, emptyDescription]) {
     assert.equal(modal.calls.length, 1);
-    assert.equal(modal.calls[0].payload?.content, 'Le titre et la description sont requis.');
+    assert.equal(
+      modal.calls[0].payload?.content,
+      Messages.featureRequestTitleAndDescriptionRequired,
+    );
     assert.equal(modal.calls[0].payload?.flags, MessageFlags.Ephemeral);
   }
   assert.deepEqual(issues, []);
@@ -412,7 +416,7 @@ test('/q rejette les prompts vides et trop longs avant de différer', async () =
 
   const empty = createFakeInteraction({ prompt: '   ' });
   await bot.handleInteraction(empty);
-  assert.equal(empty.calls[0].payload?.content, 'Pose ta question.');
+  assert.equal(empty.calls[0].payload?.content, Messages.pleaseAskQuestion);
   assert.equal(empty.calls[0].payload?.flags, memoOn);
 
   const long = createFakeInteraction({ prompt: 'x'.repeat(51) });
@@ -651,10 +655,7 @@ test('une mention vide demande une question', async () => {
 
   await bot.handleMessage(message);
 
-  assert.equal(
-    message.calls[0].payload?.content,
-    'Salut ! Mentionne-moi avec une question, ou utilise `/q`.',
-  );
+  assert.equal(message.calls[0].payload?.content, Messages.mentionPrompt);
   assert.equal(memory.calls.length, 0);
 });
 

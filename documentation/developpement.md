@@ -9,6 +9,9 @@
 ## Conventions de code
 
 - **Français partout** : chaînes, journaux, commentaires et titres de tests.
+- **Aucun littéral en dur** : toutes les chaînes, limites et valeurs par
+  défaut vivent dans `src/constants.ts` (groupées par thème) ; les tests et
+  les scripts importent les mêmes constantes que le code de production.
 - **JSDoc balisée sur tout** : `@class NomClasse`, `@constructor` +
   `@param {Type}`, `@method` + `@returns`, `@static`, `@function`,
   `@interface`, `@type`, `@throws`.

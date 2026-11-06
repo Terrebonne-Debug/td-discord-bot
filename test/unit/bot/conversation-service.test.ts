@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ConversationService } from '../../../src/bot/conversation/conversation-service.ts';
 import type { ConversationStrategy } from '../../../src/bot/conversation/conversation-strategy.ts';
+import { Commands as CommandNames, LogMessages } from '../../../src/constants.ts';
 import type { Turn } from '../../../src/models/memory/turn.ts';
 import { createFakeMemory, createLogger } from '../../helpers/fakes.ts';
 
@@ -56,7 +57,7 @@ function scriptedStrategy({
       if (this.failReportError) throw new Error('reportError failed');
       this.errorReported.push(error instanceof Error ? error.message : String(error));
     },
-    errorLabel: () => 'Échec du traitement de /q',
+    errorLabel: () => LogMessages.handleSlashFailed(CommandNames.question),
     errorFields: () => ({ key: memoryKey }),
   };
 }

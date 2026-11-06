@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { Command } from '../../../src/bot/commands/command.ts';
 import { CommandDispatcher } from '../../../src/bot/commands/command-dispatcher.ts';
+import { Version } from '../../../src/constants.ts';
 import { createFakeInteraction, createFakeModalSubmit, createLogger } from '../../helpers/fakes.ts';
 
 interface FakeCommand extends Command {
@@ -48,7 +49,7 @@ test('CommandDispatcher ignore les commandes inconnues et les interactions non-c
   const q = fakeCommand(['q']);
   const { dispatcher: d } = dispatcher([q]);
 
-  await d.dispatch(createFakeInteraction({ commandName: 'inconnue' }));
+  await d.dispatch(createFakeInteraction({ commandName: Version.unknownVersion }));
   await d.dispatch(createFakeInteraction({ chatInput: false }));
 
   assert.deepEqual(q.handled, []);

@@ -1,3 +1,4 @@
+import { Github } from '../constants.ts';
 import type { CreateIssueOptions } from '../models/github/create-issue-options.ts';
 
 /**
@@ -32,13 +33,13 @@ export class GitHubIssues {
    */
   async createIssue(): Promise<string> {
     const response = await this.#fetchFn(
-      `https://api.github.com/repos/${this.#options.repository}/issues`,
+      `${Github.apiBaseUrl}/repos/${this.#options.repository}/issues`,
       {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${this.#options.token}`,
-          Accept: 'application/vnd.github+json',
-          'Content-Type': 'application/json',
+          Authorization: `${Github.authorizationPrefix}${this.#options.token}`,
+          Accept: Github.acceptHeader,
+          [Github.contentHeader]: Github.jsonContentType,
         },
         body: JSON.stringify({ title: this.#options.title, body: this.#options.body }),
       },

@@ -1,5 +1,6 @@
 import type { Collection, Db } from 'mongodb';
 import { MongoClient } from 'mongodb';
+import { LogMessages, Memory } from '../constants.ts';
 import { MemoryCipher } from '../crypto/memory-cipher.ts';
 import { LoggerFactory } from '../logging/logger-factory.ts';
 import type { EncryptedTurn } from '../models/crypto/encrypted-turn.ts';
@@ -21,7 +22,7 @@ import type { Turn } from '../models/memory/turn.ts';
  */
 export class MemoryStore implements ConversationMemory {
   /** @type {string} La collection des mémoires de canaux. */
-  static #channelCollection = 'channel_memories';
+  static #channelCollection = Memory.channelCollection;
 
   /**
    * Reconnaît un tour valide dans une entrée stockée.
@@ -81,9 +82,7 @@ export class MemoryStore implements ConversationMemory {
     try {
       await db.collection(MemoryStore.#channelCollection).createIndex({ updatedAt: 1 }, options);
     } catch (error) {
-      logger.warn(
-        `Impossible de créer l'index TTL sur ${MemoryStore.#channelCollection} : ${error}`,
-      );
+      logger.warn(LogMessages.ttlIndexFailed(MemoryStore.#channelCollection, error));
     }
   }
 
@@ -113,13 +112,13 @@ export class MemoryStore implements ConversationMemory {
     for (const turn of turns) {
       if (MemoryCipher.isEncryptedTurn(turn)) {
         if (!cipher) {
-          logger.warn(`Tour chiffré ignoré : MEMORY_ENCRYPTION_KEY non configuré (clé ${aad}).`);
+          logger.warn(LogMessages.encryptedTurnSkippedNoKey(aad));
           continue;
         }
         try {
           decrypted.push(cipher.decryptTurn(turn, aad));
         } catch {
-          logger.warn(`Tour chiffré ignoré : déchiffrement impossible (clé ${aad}).`);
+          logger.warn(LogMessages.encryptedTurnSkippedDecryptionFailed(aad));
         }
         continue;
       }
@@ -180,9 +179,7 @@ export class MemoryStore implements ConversationMemory {
     logger = new LoggerFactory().consoleLogger(),
   }: MemoryConnectOptions): Promise<MemoryStore> {
     if (!uri) {
-      logger.warn(
-        "MONGODB_URI n'est pas défini ; la mémoire de conversation reste en RAM et sera perdue au redémarrage.",
-      );
+      logger.warn(LogMessages.memoryFallbackNoUri);
       return new MemoryStore({ maxHistoryTurns, logger });
     }
 
@@ -196,22 +193,17 @@ export class MemoryStore implements ConversationMemory {
       await client.connect();
       const db = client.db(dbName);
       await db.command({ ping: 1 });
-      logger.debug('MongoDB connecté', {
+      logger.debug(LogMessages.mongoConnected, {
         dbName,
         ms: Math.round(performance.now() - startedAt),
       });
       await MemoryStore.#ensureTtlIndexes(db, ttlDays, logger);
       if (!encryptionKey) {
-        logger.warn(
-          "MEMORY_ENCRYPTION_KEY n'est pas défini ; la mémoire des canaux est stockée en clair.",
-        );
+        logger.warn(LogMessages.memoryStoredInPlaintext);
       }
       return new MemoryStore({ client, db, maxHistoryTurns, encryptionKey, logger });
     } catch (error) {
-      logger.warn(
-        `MongoDB est indisponible (${error}); ` +
-          'repli sur la mémoire en RAM, perdue au redémarrage.',
-      );
+      logger.warn(LogMessages.mongoUnavailable(error));
       await MemoryStore.#closeQuietly(client);
       return new MemoryStore({ maxHistoryTurns, logger });
     }
@@ -220,7 +212,7 @@ export class MemoryStore implements ConversationMemory {
   async getHistory(key: string): Promise<Turn[]> {
     if (this.#mode === 'memory') {
       const history = MemoryStore.#normalizeTurns(this.#channels.get(key));
-      this.#logger.debug('Historique lu', {
+      this.#logger.debug(LogMessages.historyLoaded, {
         key,
         mode: this.#mode,
         turns: history.length,
@@ -278,7 +270,7 @@ export class MemoryStore implements ConversationMemory {
       );
     }
 
-    this.#logger.debug('Tour enregistré', { key, mode: this.#mode });
+    this.#logger.debug(LogMessages.turnSaved, { key, mode: this.#mode });
     return true;
   }
 
