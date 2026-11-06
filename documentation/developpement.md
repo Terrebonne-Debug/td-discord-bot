@@ -78,12 +78,9 @@ Les changements ne touchant que `documentation/**` ou `*.md` ne déclenchent
 pas la CI (`paths-ignore`).
 
 **Node est configuré une seule fois** : les `setup-node` lisent `.nvmrc` à la
-racine, où la version est épinglée **exactement** (`24.15.0`, la même que
-celle des machines de développement) — le cache d'outils du runner
-auto-hébergé persiste entre les jobs et les exécutions, donc la distribution
-n'est téléchargée qu'une fois, les jobs suivants affichent « Found in
-cache ». Changer de version de Node se fait par un changement volontaire de
-`.nvmrc` (un commit), jamais par une publication de correctif Node.js.
+racine, et le cache d'outils du runner auto-hébergé persiste entre les jobs
+et les exécutions — la distribution n'est téléchargée qu'une fois, les jobs
+suivants affichent « Found in cache ».
 
 **Jamais de boucle lint** : le hook `.githooks/pre-commit` corrige et
 ré-indexe la mise en forme (le commit passe toujours), et le job `lint` se
