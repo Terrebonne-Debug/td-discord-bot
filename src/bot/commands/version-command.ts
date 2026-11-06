@@ -9,10 +9,8 @@ import type { Command } from './command.ts';
  * @class VersionCommand
  */
 export class VersionCommand implements Command {
-  /** @type {readonly string[]} Le nom de la commande. */
-  readonly names = [CommandNames.version] as const;
+  readonly names: readonly string[] = [CommandNames.version];
 
-  /** @type {BuildInfo} La version et le commit de cette compilation. */
   #buildInfo: BuildInfo;
 
   /**

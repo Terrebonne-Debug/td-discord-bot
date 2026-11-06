@@ -15,9 +15,7 @@ import type { Command } from './command.ts';
  * @class CommandDispatcher
  */
 export class CommandDispatcher {
-  /** @type {Command[]} Les commandes enregistrées, dans l'ordre de routage. */
   #commands: Command[];
-  /** @type {BotLogger} Le journal du bot. */
   #logger: BotLogger;
 
   /**

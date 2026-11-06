@@ -49,7 +49,6 @@ export class MemoryCipher {
     );
   }
 
-  /** @type {Buffer} La clé de chiffrement binaire. */
   #key: Buffer;
 
   /**

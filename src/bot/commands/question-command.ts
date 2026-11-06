@@ -12,14 +12,10 @@ import type { Command } from './command.ts';
  * @class QuestionCommand
  */
 export class QuestionCommand implements Command {
-  /** @type {readonly string[]} Le nom de la commande. */
-  readonly names = [CommandNames.question] as const;
+  readonly names: readonly string[] = [CommandNames.question];
 
-  /** @type {ConversationService} L'algorithme de conversation partagé. */
   #conversations: ConversationService;
-  /** @type {BotSettings} Les réglages du bot. */
   #settings: BotSettings;
-  /** @type {BotLogger} Le journal du bot. */
   #logger: BotLogger;
 
   /**

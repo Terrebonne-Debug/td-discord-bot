@@ -98,15 +98,10 @@ export class Launcher {
     return shutdown;
   }
 
-  /** @type {StartupConfig} La configuration de démarrage. */
   #appConfig: StartupConfig;
-  /** @type {() => BotClient & StartupClient} La fabrique de client. */
   #createClient: () => BotClient & StartupClient;
-  /** @type {(options: MemoryConnectOptions) => Promise<ConversationMemory>} La fabrique de mémoire. */
   #connectMemory: (options: MemoryConnectOptions) => Promise<ConversationMemory>;
-  /** @type {BotLogger} Le journal du bot. */
   #logger: BotLogger;
-  /** @type {ProcessLike} Le processus à observer. */
   #processRef: ProcessLike;
 
   /**

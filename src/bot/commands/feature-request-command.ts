@@ -21,14 +21,9 @@ import type { Command } from './command.ts';
  * @class FeatureRequestCommand
  */
 export class FeatureRequestCommand implements Command {
-  /** @type {readonly string[]} Le nom de la commande. */
-  readonly names = [CommandNames.featureRequest] as const;
-
-  /** @type {BotSettings} Les réglages du bot (jeton et dépôt GitHub). */
+  readonly names: readonly string[] = [CommandNames.featureRequest];
   #settings: BotSettings;
-  /** @type {(title: string, body: string) => Promise<string>} Le créateur d'issue. */
   #createIssue: (title: string, body: string) => Promise<string>;
-  /** @type {BotLogger} Le journal du bot. */
   #logger: BotLogger;
 
   /**
@@ -93,7 +88,6 @@ export class FeatureRequestCommand implements Command {
     await modal.deferReply();
 
     try {
-      /** GitHub limite les titres à 256 caractères ; on tronque largement en deçà. */
       const safeTitle =
         title.length > Limits.featureRequestTitle
           ? `${title.slice(0, Limits.truncatedTitleLength)}…`

@@ -12,13 +12,9 @@ import type { ConversationStrategy } from './conversation-strategy.ts';
  * @class SlashConversation
  */
 export class SlashConversation implements ConversationStrategy {
-  /** @type {InteractionLike} L'interaction slash en cours. */
   #interaction: InteractionLike;
-  /** @type {BotSettings} Les réglages du bot. */
   #settings: BotSettings;
-  /** @type {BotLogger} Le journal du bot. */
   #logger: BotLogger;
-  /** @type {boolean} Vrai quand l'interaction vient d'un message privé. */
   #isDM: boolean;
 
   /**
